@@ -9,8 +9,8 @@ const subscriptionSchema = new mongoose.Schema({
   status: String, // 'trial', 'active', 'expired', 'cancelled'
   trialStartDate: Date,
   trialEndDate: Date,
-  stripeCustomerId: String,
-  stripeSubscriptionId: String
+  paypalSubscriptionId: String,
+  lastPaymentDate: Date
 });
 
 const Subscription = mongoose.model('subscription', subscriptionSchema);
