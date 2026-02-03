@@ -12,6 +12,7 @@ const profileRoutes = require('./routes/profile.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 const preferencesRoutes = require('./routes/preferences.routes');
 const mealPlanRoutes = require('./routes/mealPlan.routes');
+const mealRoutes = require('./routes/meal.routes');
 const ingredientRoutes = require('./routes/ingredient.routes');
 
 app.use('/api/auth', authRoutes);
@@ -19,6 +20,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/meal-plan', mealPlanRoutes);
+app.use('/api/meal', mealRoutes);
 app.use('/api/ingredients', ingredientRoutes);
 
 
