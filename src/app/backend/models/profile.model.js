@@ -15,7 +15,10 @@ const profileSchema = new mongoose.Schema({
   bmi: Number,
   bmr: Number,
   tdee: Number,
-  targetCalories: Number
+  targetCalories: Number,
+  targetProtein: Number, // grams
+  targetCarbs: Number, // grams
+  targetFat: Number // grams
 });
 
 const Profile = mongoose.model('profile', profileSchema);

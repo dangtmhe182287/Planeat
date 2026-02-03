@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const mealSchema = new mongoose.Schema({
   name: String,
-  mealType: [String], // 'breakfast', 'lunch', 'dinner', 'snack'
+  mealType: [String], // 'breakfast', 'lunch', 'dinner'
   ingredients: [{
     ingredientId: {
       type: mongoose.Schema.Types.ObjectId,

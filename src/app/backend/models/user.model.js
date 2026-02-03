@@ -29,5 +29,5 @@ const emailVerificationSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 const User = mongoose.model('user', userSchema);
-const EmailVerification = mongoose.model('emailVerification', emailVerificationSchema);
+const EmailVerification = mongoose.model('emailVerification', emailVerificationSchema, 'emailVerifications');
 module.exports = {User, EmailVerification};
