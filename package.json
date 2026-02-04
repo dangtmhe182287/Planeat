@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "backend": "nodemon src/app/backend/server.js",
+    "backend": "nodemon backend/server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -15,6 +15,7 @@
     "aos": "^2.3.4",
     "axios": "^1.7.2",
     "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "date-fns": "^3.4.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
