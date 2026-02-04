@@ -72,7 +72,7 @@ export const preferencesAPI = {
 export const mealPlanAPI = {
   get: (date: string) => api.get(`/meal-plan?date=${date}`),
   create: (data: any) => api.post('/meal-plan', data),
-  generate: (data: { date: string }) => api.post('/meal-plan', data),
+  generate: (data: { date: string }) => api.post('/meal-plan/generate', data),
   swap: (data: any) => api.put('/meal-plan/swap', data),
   delete: (date: string) => api.delete(`/meal-plan?date=${date}`),
 };

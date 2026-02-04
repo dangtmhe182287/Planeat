@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "backend": "nodemon backend/server.js",
+    "backend": "nodemon src/app/backend/server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
