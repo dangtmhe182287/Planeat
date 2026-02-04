@@ -24,7 +24,6 @@ const Settings = () => {
   const [preferencesData, setPreferencesData] = useState({
     dietType: "standard",
     allergies: [] as string[],
-    mealsPerDay: 3,
   });
 
   useEffect(() => {
@@ -33,27 +32,28 @@ const Settings = () => {
 
   const loadSettings = async () => {
     try {
-      const [profileRes, preferencesRes] = await Promise.all([
-        profileAPI.get(),
-        preferencesAPI.get(),
-      ]);
+      const profileRes = await profileAPI.get().catch(() => null);
+      const preferencesRes = await preferencesAPI.get().catch(() => null);
 
-      setProfileData({
-        age: profileRes.data.age.toString(),
-        gender: profileRes.data.gender,
-        height: profileRes.data.height.toString(),
-        weight: profileRes.data.weight.toString(),
-        activityLevel: profileRes.data.activityLevel,
-        goal: profileRes.data.goal,
-      });
+      if (profileRes?.data) {
+        setProfileData({
+          age: profileRes.data.age.toString(),
+          gender: profileRes.data.gender,
+          height: profileRes.data.height.toString(),
+          weight: profileRes.data.weight.toString(),
+          activityLevel: profileRes.data.activityLevel,
+          goal: profileRes.data.goal,
+        });
+      }
 
-      setPreferencesData({
-        dietType: preferencesRes.data.dietType,
-        allergies: preferencesRes.data.allergies || [],
-        mealsPerDay: preferencesRes.data.mealsPerDay,
-      });
+      if (preferencesRes?.data) {
+        setPreferencesData({
+          dietType: preferencesRes.data.dietType,
+          allergies: preferencesRes.data.allergies || [],
+        });
+      }
     } catch (error: any) {
-      toast.error("Failed to load settings");
+      toast.error("Không thể tải cài đặt");
     } finally {
       setLoading(false);
     }
@@ -93,24 +93,29 @@ const Settings = () => {
       const preferencesPayload = {
         dietType: preferencesData.dietType,
         allergies: preferencesData.allergies,
-        mealsPerDay: preferencesData.mealsPerDay,
       };
 
-      await Promise.all([
-        profileAPI.update(profilePayload),
-        preferencesAPI.update(preferencesPayload),
-      ]);
+      // Try update first, create if doesn't exist
+      await profileAPI.update(profilePayload).catch(() => profileAPI.create(profilePayload));
+      await preferencesAPI.update(preferencesPayload).catch(() => preferencesAPI.create(preferencesPayload));
 
-      toast.success("Settings updated successfully!");
+      toast.success("Đã cập nhật cài đặt thành công!");
       router.push("/dashboard");
     } catch (error: any) {
-      toast.error("Failed to update settings");
+      toast.error("Không thể cập nhật cài đặt");
     } finally {
       setSaving(false);
     }
   };
 
-  const allergyOptions = ["dairy", "nuts", "gluten", "soy", "eggs", "shellfish"];
+  const allergyOptions = [
+    { value: "dairy", label: "Sữa" },
+    { value: "nuts", label: "Hạt" },
+    { value: "gluten", label: "Gluten" },
+    { value: "soy", label: "Đậu nành" },
+    { value: "eggs", label: "Trứng" },
+    { value: "shellfish", label: "Hải sản có vỏ" }
+  ];
 
   if (loading || authLoading) {
     return (
@@ -121,41 +126,41 @@ const Settings = () => {
   }
 
   return (
-    <section className="bg-[#F4F7FF] py-14 dark:bg-dark lg:py-20">
-      <div className="container">
+    <section className="bg-gray-50 py-14 dark:bg-gray-900 lg:py-20 min-h-screen">
+      <div className="container mx-auto px-4">
         <div className="-mx-4 flex flex-wrap">
           <div className="w-full px-4">
-            <div className="relative mx-auto max-w-[700px] overflow-hidden rounded-lg bg-white px-8 py-14 dark:bg-dark-2 sm:px-12 md:px-[60px]">
-              <h2 className="mb-10 text-center text-3xl font-bold text-dark dark:text-white">
-                Settings
+            <div className="relative mx-auto max-w-[700px] overflow-hidden rounded-lg bg-white px-8 py-14 shadow-lg dark:bg-gray-800 sm:px-12 md:px-[60px]">
+              <h2 className="mb-10 text-center text-3xl font-bold text-gray-900 dark:text-white">
+                Cài đặt
               </h2>
 
               <form onSubmit={handleSave}>
                 {/* Profile Section */}
                 <div className="mb-8">
-                  <h3 className="mb-4 text-xl font-semibold text-dark dark:text-white">
-                    Personal Information
+                  <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
+                    Thông tin cá nhân
                   </h3>
 
                   <div className="mb-[22px] grid grid-cols-2 gap-4">
                     <input
                       type="number"
                       name="age"
-                      placeholder="Age"
+                      placeholder="Tuổi"
                       value={profileData.age}
                       onChange={handleProfileChange}
                       required
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none transition dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <select
                       name="gender"
                       value={profileData.gender}
                       onChange={handleProfileChange}
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option value="male" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nam</option>
+                      <option value="female" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nữ</option>
+                      <option value="other" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Khác</option>
                     </select>
                   </div>
 
@@ -163,20 +168,20 @@ const Settings = () => {
                     <input
                       type="number"
                       name="height"
-                      placeholder="Height (cm)"
+                      placeholder="Chiều cao (cm)"
                       value={profileData.height}
                       onChange={handleProfileChange}
                       required
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <input
                       type="number"
                       name="weight"
-                      placeholder="Weight (kg)"
+                      placeholder="Cân nặng (kg)"
                       value={profileData.weight}
                       onChange={handleProfileChange}
                       required
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
 
@@ -185,13 +190,13 @@ const Settings = () => {
                       name="activityLevel"
                       value={profileData.activityLevel}
                       onChange={handleProfileChange}
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="sedentary">Sedentary</option>
-                      <option value="light">Light</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="active">Active</option>
-                      <option value="very_active">Very Active</option>
+                      <option value="sedentary" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Ít vận động</option>
+                      <option value="light" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Vận động nhẹ</option>
+                      <option value="moderate" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Vận động trung bình</option>
+                      <option value="active" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Vận động nhiều</option>
+                      <option value="very_active" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Vận động rất nhiều</option>
                     </select>
                   </div>
 
@@ -200,19 +205,19 @@ const Settings = () => {
                       name="goal"
                       value={profileData.goal}
                       onChange={handleProfileChange}
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="lose">Lose Weight</option>
-                      <option value="maintain">Maintain Weight</option>
-                      <option value="gain">Gain Weight</option>
+                      <option value="lose" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Giảm cân</option>
+                      <option value="maintain" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Duy trì cân nặng</option>
+                      <option value="gain" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Tăng cân</option>
                     </select>
                   </div>
                 </div>
 
                 {/* Preferences Section */}
                 <div className="mb-8">
-                  <h3 className="mb-4 text-xl font-semibold text-dark dark:text-white">
-                    Dietary Preferences
+                  <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
+                    Sở thích ăn uống
                   </h3>
 
                   <div className="mb-[22px]">
@@ -220,48 +225,33 @@ const Settings = () => {
                       name="dietType"
                       value={preferencesData.dietType}
                       onChange={handlePreferencesChange}
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
-                      <option value="standard">Standard</option>
-                      <option value="vegetarian">Vegetarian</option>
-                      <option value="vegan">Vegan</option>
-                      <option value="keto">Keto</option>
-                      <option value="paleo">Paleo</option>
+                      <option value="standard" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Thông thường</option>
+                      <option value="vegetarian" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Chay</option>
+                      <option value="vegan" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Thuần chay</option>
                     </select>
                   </div>
 
                   <div className="mb-[22px]">
-                    <label className="mb-3 block text-base text-dark dark:text-white">
-                      Allergies
+                    <label className="mb-3 block text-base font-medium text-gray-900 dark:text-white">
+                      Dị ứng
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       {allergyOptions.map((allergy) => (
-                        <label key={allergy} className="flex cursor-pointer items-center">
+                        <label key={allergy.value} className="flex cursor-pointer items-center">
                           <input
                             type="checkbox"
-                            checked={preferencesData.allergies.includes(allergy)}
-                            onChange={() => handleAllergyToggle(allergy)}
-                            className="mr-2 h-5 w-5 cursor-pointer rounded border-dark_border accent-primary"
+                            checked={preferencesData.allergies.includes(allergy.value)}
+                            onChange={() => handleAllergyToggle(allergy.value)}
+                            className="mr-2 h-5 w-5 cursor-pointer rounded border-gray-300 accent-primary dark:border-gray-600"
                           />
-                          <span className="text-base capitalize text-dark dark:text-white">
-                            {allergy}
+                          <span className="text-base text-gray-900 dark:text-white">
+                            {allergy.label}
                           </span>
                         </label>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="mb-[22px]">
-                    <select
-                      name="mealsPerDay"
-                      value={preferencesData.mealsPerDay}
-                      onChange={handlePreferencesChange}
-                      className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base outline-none dark:border-dark-3 dark:text-white"
-                    >
-                      <option value={3}>3 Meals Per Day</option>
-                      <option value={4}>4 Meals Per Day</option>
-                      <option value={5}>5 Meals Per Day</option>
-                    </select>
                   </div>
                 </div>
 
@@ -269,16 +259,16 @@ const Settings = () => {
                   <button
                     type="button"
                     onClick={() => router.push("/dashboard")}
-                    className="flex-1 rounded-md border border-dark_border px-5 py-3 text-base font-medium transition hover:bg-dark_border/10"
+                    className="flex-1 rounded-md border border-gray-300 bg-white px-5 py-3 text-base font-medium text-gray-900 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                   >
-                    Cancel
+                    Hủy
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
                     className="flex-1 rounded-md bg-primary px-5 py-3 text-base font-medium text-white transition hover:bg-opacity-90 disabled:opacity-50"
                   >
-                    {saving ? <Loader /> : "Save Changes"}
+                    {saving ? <Loader /> : "Lưu thay đổi"}
                   </button>
                 </div>
               </form>

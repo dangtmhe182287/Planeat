@@ -6,7 +6,7 @@ const mealSchema = new mongoose.Schema({
   ingredients: [{
     ingredientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Ingredient'
+      ref: 'ingredient'
     },
     amount: Number
   }],

@@ -1,10 +1,12 @@
-import { Poppins } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Layout/Header";
 import Footer from "@/components/Layout/Footer";
 import { ThemeProvider } from "next-themes";
 import ScrollToTop from "@/components/ScrollToTop";
-const font = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], });
+const font = Inter({ 
+  subsets: ["latin", "vietnamese"], 
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+});
 
 export default function RootLayout({
   children,
@@ -12,16 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body className={`${font.className}`}>
         <ThemeProvider
           attribute="class"
           enableSystem={true}
           defaultTheme="system"
         >
-          <Header />
           {children}
-          <Footer />
           <ScrollToTop />
         </ThemeProvider>
       </body>

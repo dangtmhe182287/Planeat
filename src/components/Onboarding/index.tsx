@@ -63,17 +63,24 @@ const Onboarding = () => {
 
       await preferencesAPI.create(preferencesPayload);
 
-      toast.success("Profile created successfully!");
+      toast.success("Đã tạo hồ sơ thành công!");
       router.push("/dashboard");
     } catch (error: any) {
-      const message = error.response?.data?.message || "Setup failed";
+      const message = error.response?.data?.message || "Thiết lập thất bại";
       toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const allergyOptions = ["dairy", "nuts", "gluten", "soy", "eggs", "shellfish"];
+  const allergyOptions = [
+    { value: "dairy", label: "Sữa" },
+    { value: "nuts", label: "Hạt" },
+    { value: "gluten", label: "Gluten" },
+    { value: "soy", label: "Đậu nành" },
+    { value: "eggs", label: "Trứng" },
+    { value: "shellfish", label: "Hải sản có vỏ" }
+  ];
 
   return (
     <section className="bg-[#F4F7FF] py-14 dark:bg-dark lg:py-20">
@@ -84,10 +91,10 @@ const Onboarding = () => {
               <div className="mb-10 text-center">
                 <Logo />
                 <h2 className="mt-6 text-3xl font-bold text-dark dark:text-white">
-                  Complete Your Profile
+                  Hoàn thiện hồ sơ của bạn
                 </h2>
                 <p className="mt-2 text-base text-body-color dark:text-dark-6">
-                  Help us personalize your meal plans
+                  Giúp chúng tôi cá nhân hóa kế hoạch bữa ăn của bạn
                 </p>
               </div>
 
@@ -95,7 +102,7 @@ const Onboarding = () => {
                 {/* Profile Section */}
                 <div className="mb-8">
                   <h3 className="mb-4 text-xl font-semibold text-dark dark:text-white">
-                    Personal Information
+                    Thông tin cá nhân
                   </h3>
 
                   <div className="mb-[22px] grid grid-cols-2 gap-4">
@@ -103,7 +110,7 @@ const Onboarding = () => {
                       <input
                         type="number"
                         name="age"
-                        placeholder="Age"
+                        placeholder="Tuổi"
                         value={formData.age}
                         onChange={handleInputChange}
                         required
@@ -118,9 +125,9 @@ const Onboarding = () => {
                         required
                         className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white"
                       >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
+                        <option value="male">Nam</option>
+                        <option value="female">Nữ</option>
+                        <option value="other">Khác</option>
                       </select>
                     </div>
                   </div>
@@ -130,7 +137,7 @@ const Onboarding = () => {
                       <input
                         type="number"
                         name="height"
-                        placeholder="Height (cm)"
+                        placeholder="Chiều cao (cm)"
                         value={formData.height}
                         onChange={handleInputChange}
                         required
@@ -141,7 +148,7 @@ const Onboarding = () => {
                       <input
                         type="number"
                         name="weight"
-                        placeholder="Weight (kg)"
+                        placeholder="Cân nặng (kg)"
                         value={formData.weight}
                         onChange={handleInputChange}
                         required
@@ -158,11 +165,11 @@ const Onboarding = () => {
                       required
                       className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white"
                     >
-                      <option value="sedentary">Sedentary (little/no exercise)</option>
-                      <option value="light">Light (1-3 days/week)</option>
-                      <option value="moderate">Moderate (3-5 days/week)</option>
-                      <option value="active">Active (6-7 days/week)</option>
-                      <option value="very_active">Very Active (athlete)</option>
+                      <option value="sedentary">Ít vận động (không/ít tập luyện)</option>
+                      <option value="light">Vận động nhẹ (1-3 ngày/tuần)</option>
+                      <option value="moderate">Vận động trung bình (3-5 ngày/tuần)</option>
+                      <option value="active">Vận động nhiều (6-7 ngày/tuần)</option>
+                      <option value="very_active">Vận động rất nhiều (vận động viên)</option>
                     </select>
                   </div>
 
@@ -174,9 +181,9 @@ const Onboarding = () => {
                       required
                       className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white"
                     >
-                      <option value="lose">Lose Weight</option>
-                      <option value="maintain">Maintain Weight</option>
-                      <option value="gain">Gain Weight</option>
+                      <option value="lose">Giảm cân</option>
+                      <option value="maintain">Duy trì cân nặng</option>
+                      <option value="gain">Tăng cân</option>
                     </select>
                   </div>
                 </div>
@@ -184,7 +191,7 @@ const Onboarding = () => {
                 {/* Preferences Section */}
                 <div className="mb-8">
                   <h3 className="mb-4 text-xl font-semibold text-dark dark:text-white">
-                    Dietary Preferences
+                    Sở thích ăn uống
                   </h3>
 
                   <div className="mb-[22px]">
@@ -195,32 +202,30 @@ const Onboarding = () => {
                       required
                       className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white"
                     >
-                      <option value="standard">Standard</option>
-                      <option value="vegetarian">Vegetarian</option>
-                      <option value="vegan">Vegan</option>
-                      <option value="keto">Keto</option>
-                      <option value="paleo">Paleo</option>
+                      <option value="standard">Thông thường</option>
+                      <option value="vegetarian">Chay (Vegetarian)</option>
+                      <option value="vegan">Thuần chay (Vegan)</option>
                     </select>
                   </div>
 
                   <div className="mb-[22px]">
                     <label className="mb-3 block text-base text-dark dark:text-white">
-                      Allergies (select all that apply)
+                      Dị ứng (chọn tất cả nếu có)
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       {allergyOptions.map((allergy) => (
                         <label
-                          key={allergy}
+                          key={allergy.value}
                           className="flex cursor-pointer items-center"
                         >
                           <input
                             type="checkbox"
-                            checked={formData.allergies.includes(allergy)}
-                            onChange={() => handleAllergyToggle(allergy)}
+                            checked={formData.allergies.includes(allergy.value)}
+                            onChange={() => handleAllergyToggle(allergy.value)}
                             className="mr-2 h-5 w-5 cursor-pointer rounded border-dark_border accent-primary"
                           />
-                          <span className="text-base capitalize text-dark dark:text-white">
-                            {allergy}
+                          <span className="text-base text-dark dark:text-white">
+                            {allergy.label}
                           </span>
                         </label>
                       ))}
@@ -235,9 +240,9 @@ const Onboarding = () => {
                       required
                       className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white"
                     >
-                      <option value={3}>3 Meals Per Day</option>
-                      <option value={4}>4 Meals Per Day</option>
-                      <option value={5}>5 Meals Per Day</option>
+                      <option value={3}>3 bữa mỗi ngày</option>
+                      <option value={4}>4 bữa mỗi ngày</option>
+                      <option value={5}>5 bữa mỗi ngày</option>
                     </select>
                   </div>
                 </div>
@@ -248,7 +253,7 @@ const Onboarding = () => {
                     disabled={loading}
                     className="flex w-full items-center justify-center rounded-md bg-primary px-5 py-3 text-base font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-90 disabled:opacity-50"
                   >
-                    Complete Setup {loading && <Loader />}
+                    Hoàn tất thiết lập {loading && <Loader />}
                   </button>
                 </div>
               </form>

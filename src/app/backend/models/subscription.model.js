@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const subscriptionSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'user',
     required: true
   },
   status: String, // 'trial', 'active', 'expired', 'cancelled'

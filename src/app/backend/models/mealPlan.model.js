@@ -3,22 +3,22 @@ const mongoose = require('mongoose');
 const mealPlanSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'user'
   },
   date: {
     type: Date
   },
   breakfast: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Meal'
+    ref: 'meal'
   },
   lunch: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Meal'
+    ref: 'meal'
   },
   dinner: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Meal'
+    ref: 'meal'
   },
 });
 

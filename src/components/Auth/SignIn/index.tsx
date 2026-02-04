@@ -25,11 +25,11 @@ const Signin = () => {
       
       if (response.data.token) {
         setAuthToken(response.data.token);
-        toast.success("Login successful");
+        toast.success("Đăng nhập thành công");
         router.push("/dashboard");
       }
     } catch (error: any) {
-      const message = error.response?.data?.message || "Login failed";
+      const message = error.response?.data?.message || "Đăng nhập thất bại";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -58,7 +58,7 @@ const Signin = () => {
         <div className="mb-[22px]">
           <input
             type="password"
-            placeholder="Password"
+            placeholder="Mật khẩu"
             value={loginData.password}
             onChange={(e) =>
               setLoginData({ ...loginData, password: e.target.value })
@@ -73,15 +73,15 @@ const Signin = () => {
             disabled={loading}
             className="bg-primary w-full py-3 rounded-lg text-18 font-medium border border-primary hover:text-primary hover:bg-transparent disabled:opacity-50"
           >
-            Sign In {loading && <Loader />}
+            Đăng nhập {loading && <Loader />}
           </button>
         </div>
       </form>
 
       <p className="text-body-secondary text-white text-base">
-        Not a member yet?{" "}
+        Chưa có tài khoản?{" "}
         <Link href="/signup" className="text-primary hover:underline">
-          Sign Up
+          Đăng ký
         </Link>
       </p>
     </>

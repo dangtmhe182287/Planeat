@@ -144,7 +144,7 @@ const Header: React.FC = () => {
                       className="text-white hover:text-primary text-24 inline-block me-2"
                     />
                   </button>
-                  <SignUp />
+                  <SignUp onClose={() => setIsSignUpOpen(false)} />
                 </div>
               </div>
             )}

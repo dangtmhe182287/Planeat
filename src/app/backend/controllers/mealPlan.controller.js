@@ -1,5 +1,6 @@
 const MealPlan = require('../models/mealPlan.model');
 const Meal = require('../models/meal.model');
+const Ingredient = require('../models/ingredient.model');
 const Profile = require('../models/profile.model');
 const Preferences = require('../models/preferences.model');
 const { calculateMealNutrition } = require('../helpers/calculateMetrics');
@@ -7,16 +8,36 @@ const { calculateMealNutrition } = require('../helpers/calculateMetrics');
 const getMealPlan = async (req, res) => {
   try {
     const { date } = req.query;
+    console.log(`Fetching meal plan for userId: ${req.userId}, date: ${date}`);
+    
     const plan = await MealPlan.findOne({ userId: req.userId, date })
-      .populate('breakfast')
-      .populate('lunch')
-      .populate('dinner');
+      .populate({
+        path: 'breakfast',
+        populate: { path: 'ingredients.ingredientId' }
+      })
+      .populate({
+        path: 'lunch',
+        populate: { path: 'ingredients.ingredientId' }
+      })
+      .populate({
+        path: 'dinner',
+        populate: { path: 'ingredients.ingredientId' }
+      });
 
     if (!plan) {
+      console.log('No meal plan found');
       return res.status(404).json({ message: 'Meal plan not found' });
     }
+    
+    console.log('Meal plan found:', {
+      breakfast: plan.breakfast ? plan.breakfast.name : null,
+      lunch: plan.lunch ? plan.lunch.name : null,
+      dinner: plan.dinner ? plan.dinner.name : null
+    });
+    
     return res.status(200).json(plan);
   } catch (e) {
+    console.error('Error in getMealPlan:', e);
     return res.status(500).json({ error: e.message });
   }
 };
@@ -54,7 +75,7 @@ const createMealPlan = async (req, res) => {
 
 const swapMeal = async (req, res) => {
   try {
-    const { date, slot, mealId } = req.body; // slot: 'breakfast', 'lunch', or 'dinner'
+    const { date, slot, mealId } = req.body;
 
     const plan = await MealPlan.findOne({ userId: req.userId, date });
     if (!plan) {
@@ -92,13 +113,13 @@ const generateMealPlan = async (req, res) => {
   try {
     const { date } = req.body;
 
-    // Check if plan already exists for this date
+    // Check if a plan already exists and delete it if regenerating
     const existing = await MealPlan.findOne({ userId: req.userId, date });
     if (existing) {
-      return res.status(403).json({ message: 'Meal plan already exists for this date' });
+      console.log('Deleting existing meal plan before regenerating');
+      await MealPlan.findOneAndDelete({ userId: req.userId, date });
     }
 
-    // Get user's profile and preferences
     const profile = await Profile.findOne({ userId: req.userId });
     const preferences = await Preferences.findOne({ userId: req.userId });
 
@@ -109,7 +130,6 @@ const generateMealPlan = async (req, res) => {
       return res.status(404).json({ message: 'Preferences not found. Please set your preferences first.' });
     }
 
-    // Target nutrition
     const targets = {
       calories: profile.targetCalories,
       protein: profile.targetProtein,
@@ -117,48 +137,37 @@ const generateMealPlan = async (req, res) => {
       fat: profile.targetFat
     };
 
-    // Build query filter for meals
     const filter = {};
     
-    // Filter by diet type if specified
     if (preferences.dietType && preferences.dietType !== 'standard') {
       filter.dietTypes = preferences.dietType;
     }
     
-    // Filter by allergens - meal must exclude ALL user allergies
     if (preferences.allergies && preferences.allergies.length > 0) {
       filter.excludesAllergens = { $all: preferences.allergies };
     }
 
-    // Get meals for each type and populate ingredients
-    const breakfastOptions = await Meal.find({ ...filter, mealType: 'breakfast' })
+    const breakfastOptions = await Meal.find({ mealType: { $in: ['breakfast'] } })
       .populate('ingredients.ingredientId');
-    const lunchOptions = await Meal.find({ ...filter, mealType: 'lunch' })
+    const lunchOptions = await Meal.find({ mealType: { $in: ['lunch'] } })
       .populate('ingredients.ingredientId');
-    const dinnerOptions = await Meal.find({ ...filter, mealType: 'dinner' })
+    const dinnerOptions = await Meal.find({ mealType: { $in: ['dinner'] } })
       .populate('ingredients.ingredientId');
+
+    console.log(`Found ${breakfastOptions.length} breakfast, ${lunchOptions.length} lunch, ${dinnerOptions.length} dinner`);
 
     if (breakfastOptions.length === 0 || lunchOptions.length === 0 || dinnerOptions.length === 0) {
       return res.status(404).json({ 
-        message: 'Not enough meals available matching your preferences. Please add more meals to the database.' 
+        message: `Not enough meals. Found: ${breakfastOptions.length} breakfast, ${lunchOptions.length} lunch, ${dinnerOptions.length} dinner` 
       });
     }
 
-    // Find best combination
-    const bestPlan = findBestMealCombination(
-      breakfastOptions,
-      lunchOptions,
-      dinnerOptions,
-      targets
-    );
+    const bestPlan = findBestMealCombination(breakfastOptions, lunchOptions, dinnerOptions, targets);
 
     if (!bestPlan) {
-      return res.status(404).json({ 
-        message: 'Could not find a suitable meal combination. Try adjusting your preferences.' 
-      });
+      return res.status(404).json({ message: 'Could not find a meal combination.' });
     }
 
-    // Create meal plan
     const plan = await new MealPlan({
       userId: req.userId,
       date,
@@ -167,33 +176,38 @@ const generateMealPlan = async (req, res) => {
       dinner: bestPlan.dinner._id
     }).save();
 
-    // Return plan with nutrition info
-    return res.status(201).json({
-      plan,
-      nutrition: bestPlan.nutrition,
-      targets
+    await plan.populate({
+      path: 'breakfast',
+      populate: { path: 'ingredients.ingredientId' }
+    });
+    await plan.populate({
+      path: 'lunch',
+      populate: { path: 'ingredients.ingredientId' }
+    });
+    await plan.populate({
+      path: 'dinner',
+      populate: { path: 'ingredients.ingredientId' }
     });
 
+    return res.status(201).json({ plan, nutrition: bestPlan.nutrition, targets });
+
   } catch (e) {
+    console.error('Generate error:', e);
     return res.status(500).json({ error: e.message });
   }
 };
 
-// Algorithm to find best meal combination
 function findBestMealCombination(breakfasts, lunches, dinners, targets) {
   let bestScore = Infinity;
   let bestPlan = null;
 
-  // Try up to 50 random combinations (balance between quality and speed)
-  const attempts = Math.min(50, breakfasts.length * lunches.length * dinners.length);
+  const attempts = Math.min(100, breakfasts.length * lunches.length * dinners.length);
   
   for (let i = 0; i < attempts; i++) {
-    // Pick random meals
     const breakfast = breakfasts[Math.floor(Math.random() * breakfasts.length)];
     const lunch = lunches[Math.floor(Math.random() * lunches.length)];
     const dinner = dinners[Math.floor(Math.random() * dinners.length)];
 
-    // Calculate nutrition
     const bNutrition = calculateMealNutrition(breakfast);
     const lNutrition = calculateMealNutrition(lunch);
     const dNutrition = calculateMealNutrition(dinner);
@@ -205,25 +219,15 @@ function findBestMealCombination(breakfasts, lunches, dinners, targets) {
       fat: bNutrition.fat + lNutrition.fat + dNutrition.fat
     };
 
-    // Score based on distance from targets (lower is better)
     const score = 
       Math.abs(totalNutrition.calories - targets.calories) +
-      Math.abs(totalNutrition.protein - targets.protein) * 2 + // Protein is important
+      Math.abs(totalNutrition.protein - targets.protein) * 2 +
       Math.abs(totalNutrition.carbs - targets.carbs) +
       Math.abs(totalNutrition.fat - targets.fat) * 1.5;
 
-    // Check if within acceptable range (±15%)
-    const caloriesInRange = Math.abs(totalNutrition.calories - targets.calories) <= targets.calories * 0.15;
-    
-    if (caloriesInRange && score < bestScore) {
+    if (score < bestScore) {
       bestScore = score;
-      bestPlan = {
-        breakfast,
-        lunch,
-        dinner,
-        nutrition: totalNutrition,
-        score
-      };
+      bestPlan = { breakfast, lunch, dinner, nutrition: totalNutrition, score };
     }
   }
 
