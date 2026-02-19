@@ -217,7 +217,7 @@ const Settings = () => {
                 {/* Preferences Section */}
                 <div className="mb-8">
                   <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-                    Sở thích ăn uống
+                    Chế độ ăn uống
                   </h3>
 
                   <div className="mb-[22px]">

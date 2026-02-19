@@ -1,43 +1,32 @@
+// mealPlan.controller.js
 const MealPlan = require('../models/mealPlan.model');
 const Meal = require('../models/meal.model');
-const Ingredient = require('../models/ingredient.model');
+const Dish = require('../models/dish.model');
 const Profile = require('../models/profile.model');
 const Preferences = require('../models/preferences.model');
-const { calculateMealNutrition } = require('../helpers/calculateMetrics');
+const { calculateMealNutrition, scoreMealPlan } = require('../helpers/calculateMetrics');
+
+// Reusable populate config for meal -> dishes -> ingredients
+const mealPopulate = {
+  path: 'dishes',
+  populate: { path: 'ingredients.ingredientId' }
+};
 
 const getMealPlan = async (req, res) => {
   try {
     const { date } = req.query;
-    console.log(`Fetching meal plan for userId: ${req.userId}, date: ${date}`);
-    
+
     const plan = await MealPlan.findOne({ userId: req.userId, date })
-      .populate({
-        path: 'breakfast',
-        populate: { path: 'ingredients.ingredientId' }
-      })
-      .populate({
-        path: 'lunch',
-        populate: { path: 'ingredients.ingredientId' }
-      })
-      .populate({
-        path: 'dinner',
-        populate: { path: 'ingredients.ingredientId' }
-      });
+      .populate({ path: 'breakfast', populate: mealPopulate })
+      .populate({ path: 'lunch', populate: mealPopulate })
+      .populate({ path: 'dinner', populate: mealPopulate });
 
     if (!plan) {
-      console.log('No meal plan found');
       return res.status(404).json({ message: 'Meal plan not found' });
     }
-    
-    console.log('Meal plan found:', {
-      breakfast: plan.breakfast ? plan.breakfast.name : null,
-      lunch: plan.lunch ? plan.lunch.name : null,
-      dinner: plan.dinner ? plan.dinner.name : null
-    });
-    
+
     return res.status(200).json(plan);
   } catch (e) {
-    console.error('Error in getMealPlan:', e);
     return res.status(500).json({ error: e.message });
   }
 };
@@ -51,22 +40,14 @@ const createMealPlan = async (req, res) => {
       return res.status(403).json({ message: 'Meal plan already exists for this date' });
     }
 
-    const meals = [breakfast, lunch, dinner].filter(Boolean);
-    for (const mealId of meals) {
+    for (const mealId of [breakfast, lunch, dinner].filter(Boolean)) {
       const meal = await Meal.findById(mealId);
       if (!meal) {
         return res.status(400).json({ message: `Meal ${mealId} not found` });
       }
     }
 
-    const plan = await new MealPlan({
-      userId: req.userId,
-      date,
-      breakfast,
-      lunch,
-      dinner
-    }).save();
-
+    const plan = await new MealPlan({ userId: req.userId, date, breakfast, lunch, dinner }).save();
     return res.status(201).json(plan);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -78,14 +59,10 @@ const swapMeal = async (req, res) => {
     const { date, slot, mealId } = req.body;
 
     const plan = await MealPlan.findOne({ userId: req.userId, date });
-    if (!plan) {
-      return res.status(404).json({ message: 'Meal plan not found' });
-    }
+    if (!plan) return res.status(404).json({ message: 'Meal plan not found' });
 
     const meal = await Meal.findById(mealId);
-    if (!meal) {
-      return res.status(400).json({ message: 'Meal not found' });
-    }
+    if (!meal) return res.status(400).json({ message: 'Meal not found' });
 
     plan[slot] = mealId;
     await plan.save();
@@ -100,9 +77,7 @@ const deleteMealPlan = async (req, res) => {
   try {
     const { date } = req.query;
     const result = await MealPlan.findOneAndDelete({ userId: req.userId, date });
-    if (!result) {
-      return res.status(404).json({ message: 'Meal plan not found' });
-    }
+    if (!result) return res.status(404).json({ message: 'Meal plan not found' });
     return res.status(200).json({ message: 'Meal plan deleted' });
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -113,22 +88,14 @@ const generateMealPlan = async (req, res) => {
   try {
     const { date } = req.body;
 
-    // Check if a plan already exists and delete it if regenerating
-    const existing = await MealPlan.findOne({ userId: req.userId, date });
-    if (existing) {
-      console.log('Deleting existing meal plan before regenerating');
-      await MealPlan.findOneAndDelete({ userId: req.userId, date });
-    }
+    // Delete existing plan for this date if regenerating
+    await MealPlan.findOneAndDelete({ userId: req.userId, date });
 
     const profile = await Profile.findOne({ userId: req.userId });
     const preferences = await Preferences.findOne({ userId: req.userId });
 
-    if (!profile) {
-      return res.status(404).json({ message: 'Profile not found. Please create a profile first.' });
-    }
-    if (!preferences) {
-      return res.status(404).json({ message: 'Preferences not found. Please set your preferences first.' });
-    }
+    if (!profile) return res.status(404).json({ message: 'Profile not found. Please create a profile first.' });
+    if (!preferences) return res.status(404).json({ message: 'Preferences not found. Please set your preferences first.' });
 
     const targets = {
       calories: profile.targetCalories,
@@ -137,35 +104,29 @@ const generateMealPlan = async (req, res) => {
       fat: profile.targetFat
     };
 
+    // Build filter from user preferences
     const filter = {};
-    
-    if (preferences.dietType && preferences.dietType !== 'standard') {
-      filter.dietTypes = preferences.dietType;
-    }
-    
-    if (preferences.allergies && preferences.allergies.length > 0) {
-      filter.excludesAllergens = { $all: preferences.allergies };
-    }
+    if (preferences.dietType && preferences.dietType !== 'standard') filter.dietTypes = preferences.dietType;
+    if (preferences.allergies?.length > 0) filter.excludesAllergens = { $all: preferences.allergies };
 
-    const breakfastOptions = await Meal.find({ mealType: { $in: ['breakfast'] } })
-      .populate('ingredients.ingredientId');
-    const lunchOptions = await Meal.find({ mealType: { $in: ['lunch'] } })
-      .populate('ingredients.ingredientId');
-    const dinnerOptions = await Meal.find({ mealType: { $in: ['dinner'] } })
-      .populate('ingredients.ingredientId');
+    // Step 1: Try to find pre-built meals that match filters
+    let breakfastOptions = await getMealOptions('breakfast', filter);
+    let lunchOptions = await getMealOptions('lunch', filter);
+    let dinnerOptions = await getMealOptions('dinner', filter);
 
-    console.log(`Found ${breakfastOptions.length} breakfast, ${lunchOptions.length} lunch, ${dinnerOptions.length} dinner`);
+    // Step 2: If not enough pre-built meals, dynamically assemble from dishes
+    if (breakfastOptions.length === 0) breakfastOptions = [await assembleMealFromDishes('breakfast', filter)].filter(Boolean);
+    if (lunchOptions.length === 0) lunchOptions = [await assembleMealFromDishes('lunch', filter)].filter(Boolean);
+    if (dinnerOptions.length === 0) dinnerOptions = [await assembleMealFromDishes('dinner', filter)].filter(Boolean);
 
     if (breakfastOptions.length === 0 || lunchOptions.length === 0 || dinnerOptions.length === 0) {
-      return res.status(404).json({ 
-        message: `Not enough meals. Found: ${breakfastOptions.length} breakfast, ${lunchOptions.length} lunch, ${dinnerOptions.length} dinner` 
-      });
+      return res.status(404).json({ message: 'Not enough meals or dishes available for your preferences.' });
     }
 
     const bestPlan = findBestMealCombination(breakfastOptions, lunchOptions, dinnerOptions, targets);
 
     if (!bestPlan) {
-      return res.status(404).json({ message: 'Could not find a meal combination.' });
+      return res.status(404).json({ message: 'Could not find a meal combination within nutrition targets.' });
     }
 
     const plan = await new MealPlan({
@@ -176,33 +137,63 @@ const generateMealPlan = async (req, res) => {
       dinner: bestPlan.dinner._id
     }).save();
 
-    await plan.populate({
-      path: 'breakfast',
-      populate: { path: 'ingredients.ingredientId' }
-    });
-    await plan.populate({
-      path: 'lunch',
-      populate: { path: 'ingredients.ingredientId' }
-    });
-    await plan.populate({
-      path: 'dinner',
-      populate: { path: 'ingredients.ingredientId' }
-    });
+    await plan.populate({ path: 'breakfast', populate: mealPopulate });
+    await plan.populate({ path: 'lunch', populate: mealPopulate });
+    await plan.populate({ path: 'dinner', populate: mealPopulate });
 
     return res.status(201).json({ plan, nutrition: bestPlan.nutrition, targets });
-
   } catch (e) {
     console.error('Generate error:', e);
     return res.status(500).json({ error: e.message });
   }
 };
 
+// Fetch pre-built meals with full dish/ingredient population
+const getMealOptions = async (mealType, filter) => {
+  return Meal.find({ mealType, ...filter }).populate({
+    path: 'dishes',
+    populate: { path: 'ingredients.ingredientId' }
+  });
+};
+
+// Dynamically assemble a meal from matching dishes and save it
+const assembleMealFromDishes = async (mealType, filter) => {
+  const dishFilter = { mealType, ...filter };
+  const dishes = await Dish.find(dishFilter).populate('ingredients.ingredientId');
+
+  if (dishes.length === 0) return null;
+
+  // Pick 1-3 dishes randomly to form a meal
+  const shuffled = dishes.sort(() => 0.5 - Math.random());
+  const selected = shuffled.slice(0, Math.min(3, shuffled.length));
+  const dishIds = selected.map(d => d._id);
+
+  // Derive dietTypes and excludesAllergens from selected dishes
+  const dietTypes = selected[0].dietTypes.filter(dt => selected.every(d => d.dietTypes.includes(dt)));
+  const excludesAllergens = selected[0].excludesAllergens.filter(a => selected.every(d => d.excludesAllergens.includes(a)));
+
+  const meal = await new Meal({
+    name: selected.map(d => d.name).join(' + '),
+    mealType,
+    dishes: dishIds,
+    dietTypes,
+    excludesAllergens
+  }).save();
+
+  // Return populated meal
+  return Meal.findById(meal._id).populate({
+    path: 'dishes',
+    populate: { path: 'ingredients.ingredientId' }
+  });
+};
+
+// Find the best scoring combination of breakfast, lunch, dinner
 function findBestMealCombination(breakfasts, lunches, dinners, targets) {
   let bestScore = Infinity;
   let bestPlan = null;
 
-  const attempts = Math.min(100, breakfasts.length * lunches.length * dinners.length);
-  
+  const attempts = Math.min(200, breakfasts.length * lunches.length * dinners.length);
+
   for (let i = 0; i < attempts; i++) {
     const breakfast = breakfasts[Math.floor(Math.random() * breakfasts.length)];
     const lunch = lunches[Math.floor(Math.random() * lunches.length)];
@@ -219,11 +210,7 @@ function findBestMealCombination(breakfasts, lunches, dinners, targets) {
       fat: bNutrition.fat + lNutrition.fat + dNutrition.fat
     };
 
-    const score = 
-      Math.abs(totalNutrition.calories - targets.calories) +
-      Math.abs(totalNutrition.protein - targets.protein) * 2 +
-      Math.abs(totalNutrition.carbs - targets.carbs) +
-      Math.abs(totalNutrition.fat - targets.fat) * 1.5;
+    const score = scoreMealPlan(totalNutrition, targets);
 
     if (score < bestScore) {
       bestScore = score;

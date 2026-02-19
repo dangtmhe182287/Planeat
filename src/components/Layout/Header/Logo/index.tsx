@@ -13,7 +13,7 @@ const Logo: React.FC = () => {
         style={{ width: 'auto', height: 'auto' }}
         quality={100}
       />
-      Chef's Kitchen.
+      Planeat
     </Link>
   );
 };

@@ -24,6 +24,7 @@ const subscriptionRoutes = require('./routes/subscription.routes');
 const preferencesRoutes = require('./routes/preferences.routes');
 const mealPlanRoutes = require('./routes/mealPlan.routes');
 const mealRoutes = require('./routes/meal.routes');
+const dishRoutes = require('./routes/dish.routes');
 
 app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/auth', authRoutes);
@@ -32,6 +33,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/meal-plan', mealPlanRoutes);
 app.use('/api/meal', mealRoutes);
+app.use('/api/dishes', dishRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('MongoDB connected'))

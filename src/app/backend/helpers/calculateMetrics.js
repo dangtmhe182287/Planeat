@@ -1,3 +1,4 @@
+// calculateMetrics.js
 const activityMultipliers = {
   sedentary: 1.2,
   light: 1.375,
@@ -13,38 +14,25 @@ const goalOffsets = {
 };
 
 // Macro ratios based on goal
-// Protein: preserves muscle, keeps you full
-// Fat: essential for hormones and absorption
-// Carbs: primary energy source
 const macroRatios = {
-  lose: { protein: 0.35, fat: 0.25, carbs: 0.40 },      // Higher protein to preserve muscle while losing weight
-  maintain: { protein: 0.30, fat: 0.30, carbs: 0.40 },  // Balanced distribution
-  gain: { protein: 0.25, fat: 0.30, carbs: 0.45 }       // Higher carbs for energy to build muscle
+  lose: { protein: 0.35, fat: 0.25, carbs: 0.40 },
+  maintain: { protein: 0.30, fat: 0.30, carbs: 0.40 },
+  gain: { protein: 0.25, fat: 0.30, carbs: 0.45 }
 };
 
-
 const calculateMetrics = ({ age, gender, height, weight, activityLevel, goal }) => {
-  // BMI (Body Mass Index) - weight status indicator
   const bmi = weight / Math.pow(height / 100, 2);
 
-  // BMR (Basal Metabolic Rate) - calories burned at rest using Mifflin-St Jeor equation
   const base = 10 * weight + 6.25 * height - 5 * age;
   let bmr;
   if (gender === 'male') bmr = base + 5;
   else if (gender === 'female') bmr = base - 161;
   else bmr = (base + 5 + base - 161) / 2;
 
-  // TDEE (Total Daily Energy Expenditure) - total calories burned per day including activity
   const tdee = bmr * (activityMultipliers[activityLevel] || 1.2);
-
-  // Target Calories - adjusted based on goal (±500 for lose/gain ~1lb per week)
   const targetCalories = tdee + (goalOffsets[goal] || 0);
 
-  // Calculate macronutrient targets in grams
-  // Protein & Carbs: 4 calories per gram
-  // Fat: 9 calories per gram
   const ratios = macroRatios[goal] || macroRatios.maintain;
-  
   const targetProtein = Math.round((targetCalories * ratios.protein) / 4);
   const targetCarbs = Math.round((targetCalories * ratios.carbs) / 4);
   const targetFat = Math.round((targetCalories * ratios.fat) / 9);
@@ -60,34 +48,48 @@ const calculateMetrics = ({ age, gender, height, weight, activityLevel, goal }) 
   };
 };
 
-// Calculate total nutrition for a meal
-// Meal must be populated with ingredient details
+// Calculate total nutrition for a meal by summing across all its dishes
+// Meal must be populated: dishes -> ingredients.ingredientId
 const calculateMealNutrition = (meal) => {
   let totalCalories = 0;
   let totalProtein = 0;
   let totalCarbs = 0;
   let totalFat = 0;
 
-  // Loop through each ingredient in the meal
-  for (const item of meal.ingredients) {
-    const ingredient = item.ingredientId;
-    const amount = item.amount; // grams or ml
+  for (const dish of meal.dishes) {
+    for (const item of dish.ingredients) {
+      const ingredient = item.ingredientId;
+      const multiplier = item.amount / 100;
 
-    // Calculate nutrition based on amount (ingredient values are per 100g)
-    const multiplier = amount / 100;
-    
-    totalCalories += ingredient.caloriesPer100g * multiplier;
-    totalProtein += ingredient.proteinPer100g * multiplier;
-    totalCarbs += ingredient.carbsPer100g * multiplier;
-    totalFat += ingredient.fatPer100g * multiplier;
+      totalCalories += ingredient.caloriesPer100g * multiplier;
+      totalProtein += ingredient.proteinPer100g * multiplier;
+      totalCarbs += ingredient.carbsPer100g * multiplier;
+      totalFat += ingredient.fatPer100g * multiplier;
+    }
   }
 
   return {
     calories: Math.round(totalCalories),
-    protein: Math.round(totalProtein * 10) / 10, // 1 decimal place
+    protein: Math.round(totalProtein * 10) / 10,
     carbs: Math.round(totalCarbs * 10) / 10,
     fat: Math.round(totalFat * 10) / 10
   };
 };
 
-module.exports = { calculateMetrics, calculateMealNutrition };
+// Score a meal combination against targets
+// Returns a score where 0 is perfect — penalizes anything outside +-15-20% range
+const scoreMealPlan = (nutrition, targets) => {
+  const tolerance = 0.175; // midpoint of 15-20%
+
+  const caloriesDiff = Math.abs(nutrition.calories - targets.calories) / targets.calories;
+  const proteinDiff = Math.abs(nutrition.protein - targets.protein) / targets.protein;
+  const carbsDiff = Math.abs(nutrition.carbs - targets.carbs) / targets.carbs;
+  const fatDiff = Math.abs(nutrition.fat - targets.fat) / targets.fat;
+
+  // Heavy penalty for going beyond tolerance threshold
+  const penalty = (diff) => diff <= tolerance ? diff : diff + (diff - tolerance) * 5;
+
+  return penalty(caloriesDiff) + penalty(proteinDiff) + penalty(carbsDiff) + penalty(fatDiff);
+};
+
+module.exports = { calculateMetrics, calculateMealNutrition, scoreMealPlan };

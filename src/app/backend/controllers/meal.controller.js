@@ -1,16 +1,36 @@
 const mongoose = require('mongoose');
 const Meal = require('../models/meal.model');
-const Ingredient = require('../models/ingredient.model');
+const Dish = require('../models/dish.model');
+
+// Helper: derive dietTypes and excludesAllergens from a list of populated dishes
+const deriveMealMeta = (dishes) => {
+  // dietTypes = intersection (a meal is vegetarian only if ALL dishes are)
+  const dietTypes = dishes.length > 0
+    ? dishes[0].dietTypes.filter(dt => dishes.every(d => d.dietTypes.includes(dt)))
+    : [];
+
+  // excludesAllergens = intersection (a meal excludes an allergen only if ALL dishes do)
+  const excludesAllergens = dishes.length > 0
+    ? dishes[0].excludesAllergens.filter(a => dishes.every(d => d.excludesAllergens.includes(a)))
+    : [];
+
+  return { dietTypes, excludesAllergens };
+};
 
 const getMeals = async (req, res) => {
   try {
-    const { mealType, dietType } = req.query;
+    const { mealType, dietType, allergen } = req.query;
     const filter = {};
-    
+
     if (mealType) filter.mealType = mealType;
     if (dietType) filter.dietTypes = dietType;
+    if (allergen) filter.excludesAllergens = allergen;
 
-    const meals = await Meal.find(filter).populate('ingredients.ingredientId');
+    const meals = await Meal.find(filter).populate({
+      path: 'dishes',
+      populate: { path: 'ingredients.ingredientId' }
+    });
+
     return res.status(200).json(meals);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -19,10 +39,15 @@ const getMeals = async (req, res) => {
 
 const getMeal = async (req, res) => {
   try {
-    const meal = await Meal.findById(req.params.id).populate('ingredients.ingredientId');
+    const meal = await Meal.findById(req.params.id).populate({
+      path: 'dishes',
+      populate: { path: 'ingredients.ingredientId' }
+    });
+
     if (!meal) {
       return res.status(404).json({ message: 'Meal not found' });
     }
+
     return res.status(200).json(meal);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -31,24 +56,27 @@ const getMeal = async (req, res) => {
 
 const createMeal = async (req, res) => {
   try {
-    const { name, mealType, ingredients, instructions, dietTypes, excludesAllergens, imageUrl } = req.body;
+    const { name, mealType, dishes: dishIds } = req.body;
 
-    // Verify all ingredients exist
-    for (const item of ingredients) {
-      const ingredient = await Ingredient.findById(item.ingredientId);
-      if (!ingredient) {
-        return res.status(400).json({ message: `Ingredient ${item.ingredientId} not found` });
+    // Verify all dishes exist
+    const dishes = [];
+    for (const id of dishIds) {
+      const dish = await Dish.findById(id);
+      if (!dish) {
+        return res.status(400).json({ message: `Dish ${id} not found` });
       }
+      dishes.push(dish);
     }
+
+    // Derive dietTypes and excludesAllergens from the dishes
+    const { dietTypes, excludesAllergens } = deriveMealMeta(dishes);
 
     const meal = await new Meal({
       name,
       mealType,
-      ingredients,
-      instructions,
+      dishes: dishIds,
       dietTypes,
-      excludesAllergens,
-      imageUrl
+      excludesAllergens
     }).save();
 
     return res.status(201).json(meal);
@@ -64,21 +92,31 @@ const updateMeal = async (req, res) => {
       return res.status(404).json({ message: 'Meal not found' });
     }
 
-    // If updating ingredients, verify they exist
-    if (req.body.ingredients) {
-      for (const item of req.body.ingredients) {
-        const ingredient = await Ingredient.findById(item.ingredientId);
-        if (!ingredient) {
-          return res.status(400).json({ message: `Ingredient ${item.ingredientId} not found` });
+    const updateData = { ...req.body };
+
+    // If dishes are being updated, re-derive dietTypes and excludesAllergens
+    if (req.body.dishes) {
+      const dishes = [];
+      for (const id of req.body.dishes) {
+        const dish = await Dish.findById(id);
+        if (!dish) {
+          return res.status(400).json({ message: `Dish ${id} not found` });
         }
+        dishes.push(dish);
       }
+      const { dietTypes, excludesAllergens } = deriveMealMeta(dishes);
+      updateData.dietTypes = dietTypes;
+      updateData.excludesAllergens = excludesAllergens;
     }
 
     const updated = await Meal.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updateData },
       { new: true }
-    ).populate('ingredients.ingredientId');
+    ).populate({
+      path: 'dishes',
+      populate: { path: 'ingredients.ingredientId' }
+    });
 
     return res.status(200).json(updated);
   } catch (e) {
