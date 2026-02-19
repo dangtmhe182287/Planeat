@@ -1,15 +1,15 @@
-// dish.controller.js
 const Dish = require('../models/dish.model');
 const Ingredient = require('../models/ingredient.model');
 
 const getDishes = async (req, res) => {
   try {
-    const { mealType, dietType, allergen } = req.query;
+    const { mealType, dietType, allergen, dishType } = req.query;
     const filter = {};
 
     if (mealType) filter.mealType = { $in: [mealType] };
     if (dietType) filter.dietTypes = dietType;
     if (allergen) filter.excludesAllergens = allergen;
+    if (dishType) filter.dishType = dishType;
 
     const dishes = await Dish.find(filter).populate('ingredients.ingredientId');
     return res.status(200).json(dishes);
@@ -30,7 +30,7 @@ const getDish = async (req, res) => {
 
 const createDish = async (req, res) => {
   try {
-    const { name, mealType, ingredients, instructions, dietTypes, excludesAllergens, imageUrl } = req.body;
+    const { name, mealType, dishType, ingredients, instructions, dietTypes, excludesAllergens, imageUrl } = req.body;
 
     // Verify all ingredients exist
     for (const item of ingredients) {
@@ -41,7 +41,7 @@ const createDish = async (req, res) => {
     }
 
     const dish = await new Dish({
-      name, mealType, ingredients, instructions, dietTypes, excludesAllergens, imageUrl
+      name, mealType, dishType, ingredients, instructions, dietTypes, excludesAllergens, imageUrl
     }).save();
 
     return res.status(201).json(dish);
@@ -55,7 +55,6 @@ const updateDish = async (req, res) => {
     const dish = await Dish.findById(req.params.id);
     if (!dish) return res.status(404).json({ message: 'Dish not found' });
 
-    // If updating ingredients, verify they exist
     if (req.body.ingredients) {
       for (const item of req.body.ingredients) {
         const ingredient = await Ingredient.findById(item.ingredientId);

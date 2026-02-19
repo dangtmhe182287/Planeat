@@ -156,31 +156,42 @@ const getMealOptions = async (mealType, filter) => {
   });
 };
 
-// Dynamically assemble a meal from matching dishes and save it
+// Dynamically assemble a meal from dishes following Vietnamese meal structure:
+// Always 1 rice dish + 1-3 from main/vegetable/soup
 const assembleMealFromDishes = async (mealType, filter) => {
-  const dishFilter = { mealType, ...filter };
-  const dishes = await Dish.find(dishFilter).populate('ingredients.ingredientId');
+  const baseFilter = { mealType: { $in: [mealType] }, ...filter };
 
-  if (dishes.length === 0) return null;
+  // Always pick 1 rice dish
+  const riceDishes = await Dish.find({ ...baseFilter, dishType: 'rice' }).populate('ingredients.ingredientId');
+  if (riceDishes.length === 0) return null;
+  const rice = riceDishes[Math.floor(Math.random() * riceDishes.length)];
 
-  // Pick 1-3 dishes randomly to form a meal
-  const shuffled = dishes.sort(() => 0.5 - Math.random());
+  // Pick 1-3 dishes from main, vegetable, soup
+  const otherDishes = await Dish.find({
+    ...baseFilter,
+    dishType: { $in: ['main', 'vegetable', 'soup'] }
+  }).populate('ingredients.ingredientId');
+
+  if (otherDishes.length === 0) return null;
+
+  // Shuffle and pick 1-3
+  const shuffled = otherDishes.sort(() => 0.5 - Math.random());
   const selected = shuffled.slice(0, Math.min(3, shuffled.length));
-  const dishIds = selected.map(d => d._id);
+  const allDishes = [rice, ...selected];
+  const dishIds = allDishes.map(d => d._id);
 
-  // Derive dietTypes and excludesAllergens from selected dishes
-  const dietTypes = selected[0].dietTypes.filter(dt => selected.every(d => d.dietTypes.includes(dt)));
-  const excludesAllergens = selected[0].excludesAllergens.filter(a => selected.every(d => d.excludesAllergens.includes(a)));
+  // Derive dietTypes and excludesAllergens from all selected dishes
+  const dietTypes = allDishes[0].dietTypes.filter(dt => allDishes.every(d => d.dietTypes.includes(dt)));
+  const excludesAllergens = allDishes[0].excludesAllergens.filter(a => allDishes.every(d => d.excludesAllergens.includes(a)));
 
   const meal = await new Meal({
-    name: selected.map(d => d.name).join(' + '),
+    name: allDishes.map(d => d.name).join(' + '),
     mealType,
     dishes: dishIds,
     dietTypes,
     excludesAllergens
   }).save();
 
-  // Return populated meal
   return Meal.findById(meal._id).populate({
     path: 'dishes',
     populate: { path: 'ingredients.ingredientId' }
