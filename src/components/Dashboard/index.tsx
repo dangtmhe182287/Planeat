@@ -219,22 +219,27 @@ const Dashboard = () => {
   );
 };
 
-// Helper function to calculate nutrition from ingredients
+// src/components/Dashboard/index.tsx
+
+// Nutrition is now summed across all dishes in a meal (meal.dishes[].ingredients[].ingredientId)
+// A meal is a Vietnamese spread: rice + main + vegetable + soup
 const calculateNutrition = (meal: any) => {
-  if (!meal?.ingredients || meal.ingredients.length === 0) {
+  if (!meal?.dishes || meal.dishes.length === 0) {
     return { calories: 0, protein: 0, carbs: 0, fat: 0 };
   }
 
   let calories = 0, protein = 0, carbs = 0, fat = 0;
 
-  meal.ingredients.forEach((ing: any) => {
-    if (ing.ingredientId) {
-      const amount = ing.amount || 0;
-      calories += (ing.ingredientId.caloriesPer100g || 0) * amount / 100;
-      protein += (ing.ingredientId.proteinPer100g || 0) * amount / 100;
-      carbs += (ing.ingredientId.carbsPer100g || 0) * amount / 100;
-      fat += (ing.ingredientId.fatPer100g || 0) * amount / 100;
-    }
+  meal.dishes.forEach((dish: any) => {
+    (dish.ingredients || []).forEach((ing: any) => {
+      if (ing.ingredientId) {
+        const amount = ing.amount || 0;
+        calories += (ing.ingredientId.caloriesPer100g || 0) * amount / 100;
+        protein += (ing.ingredientId.proteinPer100g || 0) * amount / 100;
+        carbs += (ing.ingredientId.carbsPer100g || 0) * amount / 100;
+        fat += (ing.ingredientId.fatPer100g || 0) * amount / 100;
+      }
+    });
   });
 
   return {
@@ -243,6 +248,13 @@ const calculateNutrition = (meal: any) => {
     carbs: Math.round(carbs),
     fat: Math.round(fat)
   };
+};
+
+const dishTypeLabel: Record<string, string> = {
+  rice: 'Cơm',
+  main: 'Món chính',
+  vegetable: 'Rau',
+  soup: 'Canh',
 };
 
 // Meal Card Component
@@ -265,27 +277,36 @@ const MealCard = ({ meal, type, icon }: { meal: any; type: string; icon: string 
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-      {meal.imageUrl && (
-        <div className="relative h-40 w-full bg-gray-100 dark:bg-gray-700">
-          <Image
-            src={meal.imageUrl}
-            alt={meal.name}
-            fill
-            className="object-cover"
-          />
-        </div>
-      )}
       <div className="p-5">
-        <div className="flex items-center gap-2 mb-2">
+        {/* Meal header */}
+        <div className="flex items-center gap-2 mb-4">
           <Icon icon={icon} width="20" height="20" className="text-primary" />
-          <span className="text-xs text-primary font-bold uppercase tracking-wider">
-            {type}
-          </span>
+          <span className="text-xs text-primary font-bold uppercase tracking-wider">{type}</span>
         </div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-          {meal.name}
-        </h3>
-        
+
+        {/* Dish rows - each dish in the meal shown as a row with thumbnail, name, type */}
+        <div className="space-y-3 mb-4">
+          {meal.dishes?.map((dish: any, idx: number) => (
+            <div key={idx} className="flex items-center gap-3">
+              {dish.imageUrl ? (
+                <div className="relative h-12 w-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <Image src={dish.imageUrl} alt={dish.name} fill className="object-cover" />
+                </div>
+              ) : (
+                <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <Icon icon="tabler:bowl-chopsticks" width="20" height="20" className="text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{dish.name}</p>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {dishTypeLabel[dish.dishType] || dish.dishType}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Nutrition Summary */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
@@ -315,37 +336,36 @@ const MealCard = ({ meal, type, icon }: { meal: any; type: string; icon: string 
           <Icon icon={showDetails ? "tabler:chevron-up" : "tabler:chevron-down"} width="16" height="16" />
         </button>
 
-        {/* Expanded Details */}
+        {/* Expanded Details - each dish as its own section with ingredients and instructions */}
         {showDetails && (
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-3">
-            {meal.ingredients && meal.ingredients.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Nguyên liệu</p>
-                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {meal.ingredients.map((ing: any, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
-                      <span>
-                        {ing.ingredientId?.name || 'Không rõ'} - {ing.amount}g
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-4">
+            {meal.dishes?.map((dish: any, dishIdx: number) => (
+              <div key={dishIdx}>
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {dish.name}
+                  <span className="ml-2 text-gray-400 font-normal">({dishTypeLabel[dish.dishType] || dish.dishType})</span>
+                </p>
+                {dish.ingredients?.length > 0 && (
+                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-2">
+                    {dish.ingredients.map((ing: any, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>{ing.ingredientId?.name || 'Không rõ'} - {ing.amount}g</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {dish.instructions?.length > 0 && (
+                  <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                    {dish.instructions.map((step: string, idx: number) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ol>
+                )}
               </div>
-            )}
+            ))}
 
-            {meal.instructions && meal.instructions.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Hướng dẫn</p>
-                <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                  {meal.instructions.map((step: string, idx: number) => (
-                    <li key={idx}>{step}</li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            {meal.dietTypes && meal.dietTypes.length > 0 && (
+            {meal.dietTypes?.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Loại chế độ ăn</p>
                 <div className="flex flex-wrap gap-2">

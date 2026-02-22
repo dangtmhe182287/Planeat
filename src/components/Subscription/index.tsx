@@ -1,8 +1,10 @@
+// src/components/Subscription/index.tsx
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Script from "next/script";
 import Loader from "@/components/Common/Loader";
 import { subscriptionAPI } from "@/utils/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +15,8 @@ const Subscription = () => {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  const paypalRendered = useRef(false);
 
   useEffect(() => {
     loadSubscription();
@@ -120,7 +124,7 @@ const Subscription = () => {
                       <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="16" height="16" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">Kế hoạch bữa ăn không giới hạn</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">Lập kế hoạch bữa ăn không giới hạn</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Tạo bao nhiêu kế hoạch tùy thích</p>
                     </div>
                   </div>
@@ -157,7 +161,9 @@ const Subscription = () => {
                 </div>
 
                 {/* PayPal Button */}
-                <div id="paypal-button-container" className="mb-4"></div>
+                <div className="rounded-2xl overflow-hidden mb-4 p-4 bg-white">
+                  <div id="paypal-button-container"></div>
+                </div>
 
                 {/* Terms */}
                 <p className="text-xs text-center text-gray-500 dark:text-gray-400">
@@ -330,11 +336,38 @@ const Subscription = () => {
         )}
       </div>
 
-      {/* PayPal SDK */}
-      <script
+      {/* PayPal SDK - use Next.js Script for reliable loading */}
+      <Script
         src={`https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&vault=true&intent=subscription`}
         data-sdk-integration-source="button-factory"
-      ></script>
+        strategy="afterInteractive"
+        onLoad={() => {
+          const win = window as any;
+          if (!win.paypal || paypalRendered.current || subscription) return;
+          paypalRendered.current = true;
+          win.paypal.Buttons({
+            style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'subscribe' },
+            createSubscription: (_data: any, actions: any) => {
+              return actions.subscription.create({
+                plan_id: process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID,
+              });
+            },
+            onApprove: async (data: any) => {
+              try {
+                await subscriptionAPI.create(data.subscriptionID);
+                toast.success("Đăng ký thành công!");
+                loadSubscription();
+              } catch (error: any) {
+                toast.error(error.response?.data?.message || "Không thể kích hoạt đăng ký");
+              }
+            },
+            onError: (err: any) => {
+              console.error('PayPal error:', err);
+              toast.error("Có lỗi xảy ra với PayPal");
+            },
+          }).render('#paypal-button-container');
+        }}
+      />
     </section>
   );
 };
