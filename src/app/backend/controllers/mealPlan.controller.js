@@ -1,10 +1,12 @@
-// mealPlan.controller.js
 const MealPlan = require('../models/mealPlan.model');
 const Meal = require('../models/meal.model');
 const Dish = require('../models/dish.model');
 const Profile = require('../models/profile.model');
 const Preferences = require('../models/preferences.model');
 const { calculateMealNutrition, scoreMealPlan } = require('../helpers/calculateMetrics');
+
+// How many random candidate meals to generate per slot before scoring
+const CANDIDATE_COUNT = 8;
 
 // Reusable populate config for meal -> dishes -> ingredients
 const mealPopulate = {
@@ -109,87 +111,112 @@ const generateMealPlan = async (req, res) => {
     if (preferences.dietType && preferences.dietType !== 'standard') filter.dietTypes = preferences.dietType;
     if (preferences.allergies?.length > 0) filter.excludesAllergens = { $all: preferences.allergies };
 
-    // Step 1: Try to find pre-built meals that match filters
-    let breakfastOptions = await getMealOptions('breakfast', filter);
-    let lunchOptions = await getMealOptions('lunch', filter);
-    let dinnerOptions = await getMealOptions('dinner', filter);
+    // Fetch all available dishes once (avoid repeated DB calls inside loops)
+    const allCompleteDishes = {
+      breakfast: await Dish.find({ mealType: { $in: ['breakfast'] }, dishType: 'complete_meal', ...filter }).populate('ingredients.ingredientId'),
+      lunch:     await Dish.find({ mealType: { $in: ['lunch'] },     dishType: 'complete_meal', ...filter }).populate('ingredients.ingredientId'),
+      dinner:    await Dish.find({ mealType: { $in: ['dinner'] },    dishType: 'complete_meal', ...filter }).populate('ingredients.ingredientId'),
+    };
+    const riceDishes = await Dish.find({ dishType: 'rice', ...filter }).populate('ingredients.ingredientId');
+    const sideDishes = await Dish.find({ dishType: { $in: ['main', 'vegetable', 'soup'] }, ...filter }).populate('ingredients.ingredientId');
 
-    // Step 2: If not enough pre-built meals, dynamically assemble from dishes
-    if (breakfastOptions.length === 0) breakfastOptions = [await assembleMealFromDishes('breakfast', filter)].filter(Boolean);
-    if (lunchOptions.length === 0) lunchOptions = [await assembleMealFromDishes('lunch', filter)].filter(Boolean);
-    if (dinnerOptions.length === 0) dinnerOptions = [await assembleMealFromDishes('dinner', filter)].filter(Boolean);
+    // Generate CANDIDATE_COUNT virtual meal options per slot (in memory, no DB save yet)
+    const breakfastOptions = assembleOptions('breakfast', allCompleteDishes.breakfast, riceDishes, sideDishes);
+    const lunchOptions     = assembleOptions('lunch',     allCompleteDishes.lunch,     riceDishes, sideDishes);
+    const dinnerOptions    = assembleOptions('dinner',    allCompleteDishes.dinner,    riceDishes, sideDishes);
 
     if (breakfastOptions.length === 0 || lunchOptions.length === 0 || dinnerOptions.length === 0) {
       return res.status(404).json({ message: 'Not enough meals or dishes available for your preferences.' });
     }
 
-    const bestPlan = findBestMealCombination(breakfastOptions, lunchOptions, dinnerOptions, targets);
+    // Score all combinations and pick the best one
+    const bestVirtual = findBestMealCombination(breakfastOptions, lunchOptions, dinnerOptions, targets);
 
-    if (!bestPlan) {
+    if (!bestVirtual) {
       return res.status(404).json({ message: 'Could not find a meal combination within nutrition targets.' });
     }
+
+    // Only now save the 3 winning meals to the DB
+    const savedBreakfast = await saveMeal(bestVirtual.breakfast, 'breakfast');
+    const savedLunch     = await saveMeal(bestVirtual.lunch,     'lunch');
+    const savedDinner    = await saveMeal(bestVirtual.dinner,    'dinner');
 
     const plan = await new MealPlan({
       userId: req.userId,
       date,
-      breakfast: bestPlan.breakfast._id,
-      lunch: bestPlan.lunch._id,
-      dinner: bestPlan.dinner._id
+      breakfast: savedBreakfast._id,
+      lunch: savedLunch._id,
+      dinner: savedDinner._id
     }).save();
 
     await plan.populate({ path: 'breakfast', populate: mealPopulate });
     await plan.populate({ path: 'lunch', populate: mealPopulate });
     await plan.populate({ path: 'dinner', populate: mealPopulate });
 
-    return res.status(201).json({ plan, nutrition: bestPlan.nutrition, targets });
+    return res.status(201).json({ plan, nutrition: bestVirtual.nutrition, targets });
   } catch (e) {
     console.error('Generate error:', e);
     return res.status(500).json({ error: e.message });
   }
 };
 
-// Fetch pre-built meals with full dish/ingredient population
-const getMealOptions = async (mealType, filter) => {
-  return Meal.find({ mealType, ...filter }).populate({
-    path: 'dishes',
-    populate: { path: 'ingredients.ingredientId' }
-  });
+// Build CANDIDATE_COUNT virtual meal objects in memory from available dishes.
+// Returns plain objects with { name, mealType, dishes (populated), dietTypes, excludesAllergens }.
+// Nothing is saved to DB here.
+const assembleOptions = (mealType, completeDishes, riceDishes, sideDishes) => {
+  const options = [];
+  const canComplete = completeDishes.length > 0;
+  const canSpread = riceDishes.length > 0 && sideDishes.length > 0;
+
+  for (let i = 0; i < CANDIDATE_COUNT; i++) {
+    // If both types are available, alternate: even iterations = complete meal, odd = rice spread
+    // This ensures variety in the candidate pool regardless of what dishes exist
+    const useComplete = canComplete && (!canSpread || i % 2 === 0);
+
+    if (useComplete) {
+      const dish = completeDishes[Math.floor(Math.random() * completeDishes.length)];
+      options.push({
+        name: dish.name,
+        mealType,
+        dishes: [dish],
+        dietTypes: dish.dietTypes || [],
+        excludesAllergens: dish.excludesAllergens || []
+      });
+    } else if (canSpread) {
+      // Build a Vietnamese spread: rice + 1-3 random sides
+      const rice = riceDishes[Math.floor(Math.random() * riceDishes.length)];
+      const shuffled = [...sideDishes].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, Math.min(3, shuffled.length));
+      const allDishes = [rice, ...selected];
+
+      const dietTypes = allDishes[0].dietTypes
+        ? allDishes[0].dietTypes.filter(dt => allDishes.every(d => d.dietTypes?.includes(dt)))
+        : [];
+      const excludesAllergens = allDishes[0].excludesAllergens
+        ? allDishes[0].excludesAllergens.filter(a => allDishes.every(d => d.excludesAllergens?.includes(a)))
+        : [];
+
+      options.push({
+        name: allDishes.map(d => d.name).join(' + '),
+        mealType,
+        dishes: allDishes,
+        dietTypes,
+        excludesAllergens
+      });
+    }
+  }
+
+  return options;
 };
 
-// Dynamically assemble a meal from dishes following Vietnamese meal structure:
-// Always 1 rice dish + 1-3 from main/vegetable/soup
-const assembleMealFromDishes = async (mealType, filter) => {
-  const baseFilter = { mealType: { $in: [mealType] }, ...filter };
-
-  // Always pick 1 rice dish
-  const riceDishes = await Dish.find({ ...baseFilter, dishType: 'rice' }).populate('ingredients.ingredientId');
-  if (riceDishes.length === 0) return null;
-  const rice = riceDishes[Math.floor(Math.random() * riceDishes.length)];
-
-  // Pick 1-3 dishes from main, vegetable, soup
-  const otherDishes = await Dish.find({
-    ...baseFilter,
-    dishType: { $in: ['main', 'vegetable', 'soup'] }
-  }).populate('ingredients.ingredientId');
-
-  if (otherDishes.length === 0) return null;
-
-  // Shuffle and pick 1-3
-  const shuffled = otherDishes.sort(() => 0.5 - Math.random());
-  const selected = shuffled.slice(0, Math.min(3, shuffled.length));
-  const allDishes = [rice, ...selected];
-  const dishIds = allDishes.map(d => d._id);
-
-  // Derive dietTypes and excludesAllergens from all selected dishes
-  const dietTypes = allDishes[0].dietTypes.filter(dt => allDishes.every(d => d.dietTypes.includes(dt)));
-  const excludesAllergens = allDishes[0].excludesAllergens.filter(a => allDishes.every(d => d.excludesAllergens.includes(a)));
-
+// Save a virtual meal object to the DB and return the saved document
+const saveMeal = async (virtualMeal, mealType) => {
   const meal = await new Meal({
-    name: allDishes.map(d => d.name).join(' + '),
+    name: virtualMeal.name,
     mealType,
-    dishes: dishIds,
-    dietTypes,
-    excludesAllergens
+    dishes: virtualMeal.dishes.map(d => d._id),
+    dietTypes: virtualMeal.dietTypes,
+    excludesAllergens: virtualMeal.excludesAllergens
   }).save();
 
   return Meal.findById(meal._id).populate({
@@ -198,7 +225,7 @@ const assembleMealFromDishes = async (mealType, filter) => {
   });
 };
 
-// Find the best scoring combination of breakfast, lunch, dinner
+// Find the best scoring combination across all candidates
 function findBestMealCombination(breakfasts, lunches, dinners, targets) {
   let bestScore = Infinity;
   let bestPlan = null;
@@ -207,8 +234,8 @@ function findBestMealCombination(breakfasts, lunches, dinners, targets) {
 
   for (let i = 0; i < attempts; i++) {
     const breakfast = breakfasts[Math.floor(Math.random() * breakfasts.length)];
-    const lunch = lunches[Math.floor(Math.random() * lunches.length)];
-    const dinner = dinners[Math.floor(Math.random() * dinners.length)];
+    const lunch     = lunches[Math.floor(Math.random() * lunches.length)];
+    const dinner    = dinners[Math.floor(Math.random() * dinners.length)];
 
     const bNutrition = calculateMealNutrition(breakfast);
     const lNutrition = calculateMealNutrition(lunch);
@@ -216,9 +243,9 @@ function findBestMealCombination(breakfasts, lunches, dinners, targets) {
 
     const totalNutrition = {
       calories: bNutrition.calories + lNutrition.calories + dNutrition.calories,
-      protein: bNutrition.protein + lNutrition.protein + dNutrition.protein,
-      carbs: bNutrition.carbs + lNutrition.carbs + dNutrition.carbs,
-      fat: bNutrition.fat + lNutrition.fat + dNutrition.fat
+      protein:  bNutrition.protein  + lNutrition.protein  + dNutrition.protein,
+      carbs:    bNutrition.carbs    + lNutrition.carbs    + dNutrition.carbs,
+      fat:      bNutrition.fat      + lNutrition.fat      + dNutrition.fat
     };
 
     const score = scoreMealPlan(totalNutrition, targets);

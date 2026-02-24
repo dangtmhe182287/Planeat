@@ -157,23 +157,9 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <MealCard
-                meal={mealPlan.breakfast}
-                type="Bữa sáng"
-                icon="tabler:sun"
-              />
-              
-              <MealCard
-                meal={mealPlan.lunch}
-                type="Bữa trưa"
-                icon="tabler:sun-high"
-              />
-              
-              <MealCard
-                meal={mealPlan.dinner}
-                type="Bữa tối"
-                icon="tabler:moon"
-              />
+              <MealCard meal={mealPlan.breakfast} type="Bữa sáng" icon="tabler:sun" />
+              <MealCard meal={mealPlan.lunch}     type="Bữa trưa" icon="tabler:sun-high" />
+              <MealCard meal={mealPlan.dinner}    type="Bữa tối"  icon="tabler:moon" />
             </div>
           )}
         </div>
@@ -182,16 +168,9 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
             <Icon icon="tabler:settings" width="40" height="40" className="text-primary mb-3" />
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Cài đặt
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
-              Cập nhật hồ sơ và sở thích của bạn
-            </p>
-            <button 
-              onClick={() => router.push("/settings")}
-              className="text-primary hover:text-primary/80 font-medium flex items-center gap-2 text-sm"
-            >
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Cài đặt</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">Cập nhật hồ sơ và sở thích của bạn</p>
+            <button onClick={() => router.push("/settings")} className="text-primary hover:text-primary/80 font-medium flex items-center gap-2 text-sm">
               Đi tới Cài đặt
               <Icon icon="tabler:arrow-right" width="18" height="18" />
             </button>
@@ -199,16 +178,9 @@ const Dashboard = () => {
 
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
             <Icon icon="tabler:credit-card" width="40" height="40" className="text-primary mb-3" />
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Đăng ký
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
-              Quản lý đăng ký và thanh toán của bạn
-            </p>
-            <button 
-              onClick={() => router.push("/subscription")}
-              className="text-primary hover:text-primary/80 font-medium flex items-center gap-2 text-sm"
-            >
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Đăng ký</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">Quản lý đăng ký và thanh toán của bạn</p>
+            <button onClick={() => router.push("/subscription")} className="text-primary hover:text-primary/80 font-medium flex items-center gap-2 text-sm">
               Xem đăng ký
               <Icon icon="tabler:arrow-right" width="18" height="18" />
             </button>
@@ -219,53 +191,114 @@ const Dashboard = () => {
   );
 };
 
-// src/components/Dashboard/index.tsx
-
-// Nutrition is now summed across all dishes in a meal (meal.dishes[].ingredients[].ingredientId)
-// A meal is a Vietnamese spread: rice + main + vegetable + soup
-const calculateNutrition = (meal: any) => {
-  if (!meal?.dishes || meal.dishes.length === 0) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  }
-
-  let calories = 0, protein = 0, carbs = 0, fat = 0;
-
-  meal.dishes.forEach((dish: any) => {
-    (dish.ingredients || []).forEach((ing: any) => {
-      if (ing.ingredientId) {
-        const amount = ing.amount || 0;
-        calories += (ing.ingredientId.caloriesPer100g || 0) * amount / 100;
-        protein += (ing.ingredientId.proteinPer100g || 0) * amount / 100;
-        carbs += (ing.ingredientId.carbsPer100g || 0) * amount / 100;
-        fat += (ing.ingredientId.fatPer100g || 0) * amount / 100;
-      }
-    });
-  });
-
-  return {
-    calories: Math.round(calories),
-    protein: Math.round(protein),
-    carbs: Math.round(carbs),
-    fat: Math.round(fat)
-  };
-};
-
 const dishTypeLabel: Record<string, string> = {
   rice: 'Cơm',
   main: 'Món chính',
   vegetable: 'Rau',
   soup: 'Canh',
+  complete_meal: 'Món hoàn chỉnh',
 };
 
-// Meal Card Component
-const MealCard = ({ meal, type, icon }: { meal: any; type: string; icon: string }) => {
-  const [showDetails, setShowDetails] = useState(false);
+const calcNutrition = (dish: any) => {
+  let calories = 0, protein = 0, carbs = 0, fat = 0;
+  (dish.ingredients || []).forEach((ing: any) => {
+    if (ing.ingredientId) {
+      const m = (ing.amount || 0) / 100;
+      calories += (ing.ingredientId.caloriesPer100g || 0) * m;
+      protein  += (ing.ingredientId.proteinPer100g  || 0) * m;
+      carbs    += (ing.ingredientId.carbsPer100g    || 0) * m;
+      fat      += (ing.ingredientId.fatPer100g      || 0) * m;
+    }
+  });
+  return { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
+};
 
+// Each dish is its own horizontal card: big image on the left, details on the right
+const DishCard = ({ dish }: { dish: any }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const nutrition = calcNutrition(dish);
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-700/40 rounded-xl overflow-hidden">
+      <div className="flex">
+
+        {/* Left: big image */}
+        <div className="relative w-28 flex-shrink-0 bg-gray-200 dark:bg-gray-700" style={{ minHeight: '112px' }}>
+          {dish.imageUrl ? (
+            <Image src={dish.imageUrl} alt={dish.name} fill sizes="112px" className="object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Icon icon="tabler:bowl-chopsticks" width="28" height="28" className="text-gray-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Right: name, type, nutrition, toggle */}
+        <div className="flex-1 min-w-0 p-3 flex flex-col justify-between">
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-white text-sm leading-tight">{dish.name}</p>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{dishTypeLabel[dish.dishType] || dish.dishType}</span>
+          </div>
+
+          {/* Nutrition row */}
+          <div className="grid grid-cols-4 gap-1 mt-2">
+            {[
+              { label: 'Calo',    value: `${nutrition.calories}` },
+              { label: 'Protein', value: `${nutrition.protein}g` },
+              { label: 'Carbs',   value: `${nutrition.carbs}g` },
+              { label: 'Béo',     value: `${nutrition.fat}g` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white dark:bg-gray-800 rounded-lg py-1 text-center">
+                <p className="text-gray-500 dark:text-gray-400" style={{ fontSize: '10px' }}>{label}</p>
+                <p className="font-bold text-gray-900 dark:text-white" style={{ fontSize: '11px' }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Details toggle */}
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="mt-2 text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary font-medium flex items-center gap-1"
+          >
+            {showDetails ? 'Ẩn' : 'Hiện'} chi tiết
+            <Icon icon={showDetails ? "tabler:chevron-up" : "tabler:chevron-down"} width="12" height="12" />
+          </button>
+        </div>
+      </div>
+
+      {/* Expandable details — full width below */}
+      {showDetails && (
+        <div className="px-4 pb-4 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-3">
+          {dish.ingredients?.length > 0 && (
+            <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+              {dish.ingredients.map((ing: any, idx: number) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>{ing.ingredientId?.name || 'Không rõ'} — {ing.amount}g</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {dish.instructions?.length > 0 && (
+            <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+              {dish.instructions.map((step: string, idx: number) => (
+                <li key={idx}>{step}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Big outer card per meal — header at top, DishCards stacked inside
+const MealCard = ({ meal, type, icon }: { meal: any; type: string; icon: string }) => {
   if (!meal) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
         <div className="flex items-center gap-3 mb-3">
-          <Icon icon={icon} width="28" height="28" className="text-gray-400 dark:text-gray-500" />
+          <Icon icon={icon} width="24" height="24" className="text-gray-400 dark:text-gray-500" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">{type}</h3>
         </div>
         <p className="text-gray-500 dark:text-gray-400 text-sm">Chưa có bữa ăn</p>
@@ -273,112 +306,19 @@ const MealCard = ({ meal, type, icon }: { meal: any; type: string; icon: string 
     );
   }
 
-  const nutrition = calculateNutrition(meal);
-
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="p-5">
-        {/* Meal header */}
-        <div className="flex items-center gap-2 mb-4">
-          <Icon icon={icon} width="20" height="20" className="text-primary" />
-          <span className="text-xs text-primary font-bold uppercase tracking-wider">{type}</span>
-        </div>
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+      {/* Meal type header */}
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <Icon icon={icon} width="18" height="18" className="text-primary" />
+        <span className="text-xs text-primary font-bold uppercase tracking-wider">{type}</span>
+      </div>
 
-        {/* Dish rows - each dish in the meal shown as a row with thumbnail, name, type */}
-        <div className="space-y-3 mb-4">
-          {meal.dishes?.map((dish: any, idx: number) => (
-            <div key={idx} className="flex items-center gap-3">
-              {dish.imageUrl ? (
-                <div className="relative h-12 w-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                  <Image src={dish.imageUrl} alt={dish.name} fill className="object-cover" />
-                </div>
-              ) : (
-                <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                  <Icon icon="tabler:bowl-chopsticks" width="20" height="20" className="text-gray-400" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{dish.name}</p>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {dishTypeLabel[dish.dishType] || dish.dishType}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Nutrition Summary */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Calo</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{nutrition.calories}</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Protein</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{nutrition.protein}g</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Carbs</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{nutrition.carbs}g</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Chất béo</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{nutrition.fat}g</p>
-          </div>
-        </div>
-
-        {/* Details Toggle */}
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="w-full text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium flex items-center justify-center gap-2"
-        >
-          {showDetails ? 'Ẩn' : 'Hiện'} chi tiết
-          <Icon icon={showDetails ? "tabler:chevron-up" : "tabler:chevron-down"} width="16" height="16" />
-        </button>
-
-        {/* Expanded Details - each dish as its own section with ingredients and instructions */}
-        {showDetails && (
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-4">
-            {meal.dishes?.map((dish: any, dishIdx: number) => (
-              <div key={dishIdx}>
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  {dish.name}
-                  <span className="ml-2 text-gray-400 font-normal">({dishTypeLabel[dish.dishType] || dish.dishType})</span>
-                </p>
-                {dish.ingredients?.length > 0 && (
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-2">
-                    {dish.ingredients.map((ing: any, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>{ing.ingredientId?.name || 'Không rõ'} - {ing.amount}g</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {dish.instructions?.length > 0 && (
-                  <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                    {dish.instructions.map((step: string, idx: number) => (
-                      <li key={idx}>{step}</li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            ))}
-
-            {meal.dietTypes?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Loại chế độ ăn</p>
-                <div className="flex flex-wrap gap-2">
-                  {meal.dietTypes.map((diet: string, idx: number) => (
-                    <span key={idx} className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-                      {diet}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+      {/* Dish cards stacked inside the outer card */}
+      <div className="p-4 flex flex-col gap-3">
+        {meal.dishes?.map((dish: any, idx: number) => (
+          <DishCard key={idx} dish={dish} />
+        ))}
       </div>
     </div>
   );

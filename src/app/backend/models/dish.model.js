@@ -5,7 +5,7 @@ const dishSchema = new mongoose.Schema({
   mealType: [String], // 'breakfast', 'lunch', 'dinner'
   dishType: {
     type: String,
-    enum: ['rice', 'main', 'vegetable', 'soup'],
+    enum: ['rice', 'main', 'vegetable', 'soup', 'complete_meal'],
     required: true
   },
   ingredients: [{

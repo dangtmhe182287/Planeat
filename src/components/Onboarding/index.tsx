@@ -1,3 +1,4 @@
+// src/components/Onboarding/index.tsx
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -5,8 +6,10 @@ import toast from "react-hot-toast";
 import Logo from "@/components/Layout/Header/Logo";
 import Loader from "@/components/Common/Loader";
 import { profileAPI, preferencesAPI } from "@/utils/api";
+import { useAuth } from "@/hooks/useAuth";
 
 const Onboarding = () => {
+  const { loading: authLoading } = useAuth(true);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -81,6 +84,14 @@ const Onboarding = () => {
     { value: "eggs", label: "Trứng" },
     { value: "shellfish", label: "Hải sản có vỏ" }
   ];
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <section className="bg-[#F4F7FF] py-14 dark:bg-dark lg:py-20">
