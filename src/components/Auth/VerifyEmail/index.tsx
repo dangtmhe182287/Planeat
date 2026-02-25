@@ -1,47 +1,38 @@
 "use client";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import Logo from "@/components/Layout/Header/Logo";
 import Loader from "@/components/Common/Loader";
 import { authAPI } from "@/utils/api";
+import { Icon } from "@iconify/react";
 
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get('email') || '';
-  
+  const email = searchParams.get("email") || "";
+
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [attemptsLeft, setAttemptsLeft] = useState(5);
 
   const handleCodeChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '').slice(0, 6);
-    setCode(cleaned);
+    setCode(value.replace(/\D/g, "").slice(0, 6));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (code.length !== 6) {
-      toast.error("Please enter a valid 6-digit code");
-      return;
-    }
-
+    if (code.length !== 6) { toast.error("Vui lòng nhập mã 6 chữ số hợp lệ"); return; }
     setLoading(true);
-
     try {
       await authAPI.verifyEmail({ email, code });
-      toast.success("Email verified! Please sign in.");
-      
-      // Hard redirect to signin
+      toast.success("Email đã được xác thực! Vui lòng đăng nhập.");
       window.location.href = "/signin";
-      
     } catch (error: any) {
       setLoading(false);
-      const message = error.response?.data?.message || "Verification failed";
+      const message = error.response?.data?.message || "Xác thực thất bại";
       toast.error(message);
-      
       if (error.response?.data?.attemptsLeft !== undefined) {
         setAttemptsLeft(error.response.data.attemptsLeft);
       }
@@ -49,61 +40,67 @@ function VerifyEmailForm() {
   };
 
   return (
-    <>
-      <div className="mb-10 text-center mx-auto inline-block">
-        <Logo />
-      </div>
+    <section className="min-h-screen bg-gray-900 flex items-center justify-center px-4 py-20">
+      <div className="w-full max-w-md">
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-2xl">
+          <div className="flex justify-center mb-8">
+            <Logo />
+          </div>
 
-      <h3 className="mb-3 text-2xl font-bold text-dark dark:text-white text-center">
-        Verify Your Email
-      </h3>
-      <p className="mb-8 text-base text-body-color dark:text-white/70 text-center">
-        We sent a verification code to <strong>{email}</strong>
-      </p>
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+              <Icon icon="tabler:mail-check" className="text-primary" width="32" height="32" />
+            </div>
+          </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-[22px]">
-          <input
-            type="text"
-            placeholder="Enter 6-digit code"
-            value={code}
-            onChange={(e) => handleCodeChange(e.target.value)}
-            onPaste={(e) => {
-              e.preventDefault();
-              handleCodeChange(e.clipboardData.getData('text'));
-            }}
-            maxLength={6}
-            required
-            className="w-full rounded-md border border-dark_border border-opacity-60 bg-transparent px-5 py-3 text-center text-2xl tracking-widest text-dark outline-none transition focus:border-primary dark:text-white dark:focus:border-primary"
-          />
-        </div>
-
-        {attemptsLeft < 5 && (
-          <p className="mb-4 text-sm text-red-500 text-center">
-            {attemptsLeft} attempts remaining
+          <h1 className="text-2xl font-bold text-white text-center mb-2">Xác thực Email</h1>
+          <p className="text-gray-400 text-center text-sm mb-8">
+            Chúng tôi đã gửi mã xác thực đến{" "}
+            <span className="text-white font-medium">{email}</span>
           </p>
-        )}
 
-        <div className="mb-6">
-          <button
-            type="submit"
-            disabled={loading || code.length !== 6}
-            className="bg-primary w-full py-3 rounded-lg text-18 font-medium border border-primary hover:text-primary hover:bg-transparent disabled:opacity-50"
-          >
-            {loading ? "Verifying..." : "Verify Email"}
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="text"
+              placeholder="· · · · · ·"
+              value={code}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              onPaste={(e) => { e.preventDefault(); handleCodeChange(e.clipboardData.getData("text")); }}
+              maxLength={6}
+              required
+              className="w-full bg-gray-900 border border-gray-600 rounded-xl px-4 py-4 text-center text-3xl tracking-[0.5em] text-white placeholder:text-gray-600 focus:outline-none focus:border-primary transition"
+            />
+
+            {attemptsLeft < 5 && (
+              <p className="text-sm text-red-400 text-center">Còn {attemptsLeft} lần thử</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader /> : null}
+              Xác thực Email
+            </button>
+          </form>
+
+          <p className="text-center mt-6">
+            <Link href="/signin" className="text-gray-400 hover:text-gray-200 text-sm flex items-center justify-center gap-1 transition">
+              <Icon icon="tabler:arrow-left" width="16" height="16" />
+              Quay lại đăng nhập
+            </Link>
+          </p>
         </div>
-      </form>
-    </>
+      </div>
+    </section>
   );
 }
 
-const VerifyEmail = () => {
-  return (
-    <Suspense fallback={<Loader />}>
-      <VerifyEmailForm />
-    </Suspense>
-  );
-};
+const VerifyEmail = () => (
+  <Suspense fallback={<Loader />}>
+    <VerifyEmailForm />
+  </Suspense>
+);
 
 export default VerifyEmail;

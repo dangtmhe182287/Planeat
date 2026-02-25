@@ -1,20 +1,12 @@
 import Signin from "@/components/Auth/SignIn";
-import Breadcrumb from "@/components/Common/Breadcrumb";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title:
-    "Sign In | Property",
+  title: "Đăng nhập | Planeat",
 };
 
 const SigninPage = () => {
-  return (
-    <>
-      <Breadcrumb pageName="Sign In Page" />
-
-      <Signin />
-    </>
-  );
+  return <Signin />;
 };
 
 export default SigninPage;

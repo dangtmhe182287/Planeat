@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { profileAPI, mealPlanAPI } from "@/utils/api";
+import { profileAPI, mealPlanAPI, removeAuthToken } from "@/utils/api";
 import { Icon } from "@iconify/react";
 import Loader from "@/components/Common/Loader";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,9 +96,21 @@ const Dashboard = () => {
         
         {/* Hero Section */}
         <div className="mb-12">
-          <h1 className="text-4xl lg:text-5xl font-bold mb-3 text-gray-900 dark:text-white">
-            Chào mừng đến Planeat
-          </h1>
+          <div className="flex items-start justify-between mb-3">
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">
+              Chào mừng đến Planeat
+            </h1>
+            <button
+              onClick={() => {
+                removeAuthToken();
+                router.push("/");
+              }}
+              className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors mt-2"
+            >
+              <Icon icon="tabler:logout" width="20" height="20" />
+              Đăng xuất
+            </button>
+          </div>
           <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
             Lập kế hoạch bữa ăn cá nhân của bạn
           </p>
