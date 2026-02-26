@@ -129,6 +129,10 @@ const generateMealPlan = async (req, res) => {
       return res.status(404).json({ message: 'Not enough meals or dishes available for your preferences.' });
     }
 
+    if (allCompleteDishes.breakfast.length === 0) {
+      return res.status(404).json({ message: 'No breakfast dishes found. Please add complete_meal dishes with mealType "breakfast".' });
+    }
+
     // Score all combinations and pick the best one
     const bestVirtual = findBestMealCombination(breakfastOptions, lunchOptions, dinnerOptions, targets);
 
@@ -169,9 +173,9 @@ const assembleOptions = (mealType, completeDishes, riceDishes, sideDishes) => {
   const canSpread = riceDishes.length > 0 && sideDishes.length > 0;
 
   for (let i = 0; i < CANDIDATE_COUNT; i++) {
-    // If both types are available, alternate: even iterations = complete meal, odd = rice spread
-    // This ensures variety in the candidate pool regardless of what dishes exist
-    const useComplete = canComplete && (!canSpread || i % 2 === 0);
+    // Breakfast is always a single complete_meal dish (no rice+sides spread)
+    // For lunch/dinner: alternate between complete meals and rice spreads for variety
+    const useComplete = canComplete && (mealType === 'breakfast' || !canSpread || i % 2 === 0);
 
     if (useComplete) {
       const dish = completeDishes[Math.floor(Math.random() * completeDishes.length)];
