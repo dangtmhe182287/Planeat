@@ -1,19 +1,12 @@
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const mongoose = require('mongoose');
 const {User, EmailVerification} = require('../models/user.model');
 
 const register = async(req, res) => {
     try{
-        const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.GMAIL_USER,
-            pass: process.env.GMAIL_APP_PASS
-        }
-        });
-
         const {email, password} = req.body;
         if(await User.findOne({email: email})){
             return res.status(403).json({message: 'Email in use'});
@@ -26,8 +19,8 @@ const register = async(req, res) => {
             expiresAt: Date.now() + 600000
         }).save();
 
-        await transporter.sendMail({
-            from: process.env.GMAIL_USER,
+        await resend.emails.send({
+            from: 'noreply@planeatemail.lol',
             to: email,
             subject: 'Verify your email',
             text: `Your verification code is: ${code}`
@@ -38,13 +31,12 @@ const register = async(req, res) => {
             password: hashed
         }).save();
 
-
         res.status(201).json({message: 'User created'});
     }
     catch(e){
-    console.error('REGISTER ERROR:', e.message);
-    return res.status(500).json({error: e.message});
-}
+        console.error('REGISTER ERROR:', e.message);
+        return res.status(500).json({error: e.message});
+    }
 }
 
 const login = async(req, res) => {
