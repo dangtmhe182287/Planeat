@@ -1,18 +1,19 @@
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASS
-  }
-});
 const mongoose = require('mongoose');
 const {User, EmailVerification} = require('../models/user.model');
 
 const register = async(req, res) => {
     try{
+        const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_APP_PASS
+        }
+        });
+
         const {email, password} = req.body;
         if(await User.findOne({email: email})){
             return res.status(403).json({message: 'Email in use'});
