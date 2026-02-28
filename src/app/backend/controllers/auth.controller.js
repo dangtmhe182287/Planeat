@@ -1,6 +1,7 @@
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const mongoose = require('mongoose');
 const {User, EmailVerification} = require('../models/user.model');
 
@@ -18,16 +19,8 @@ const register = async(req, res) => {
             expiresAt: Date.now() + 600000
         }).save();
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL,
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
-        
-        await transporter.sendMail({
-            from: process.env.EMAIL,
+        await resend.emails.send({
+            from: 'onboarding@resend.dev',
             to: email,
             subject: 'Verify your email',
             text: `Your verification code is: ${code}`
