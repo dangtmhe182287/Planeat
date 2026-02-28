@@ -40,6 +40,13 @@ mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
+app.get('/test-env', (req, res) => {
+  res.json({
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASS ? 'EXISTS' : 'MISSING'
+  });
+});
+
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
