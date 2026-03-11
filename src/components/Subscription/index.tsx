@@ -109,7 +109,7 @@ const Subscription = () => {
                 {/* Price */}
                 <div className="text-center mb-8">
                   <div className="flex items-baseline justify-center mb-2">
-                    <span className="text-5xl font-bold text-gray-900 dark:text-white">$9.99</span>
+                    <span className="text-5xl font-bold text-gray-900 dark:text-white">99.000₫</span>
                     <span className="text-xl text-gray-600 dark:text-gray-400 ml-2">/tháng</span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -268,7 +268,7 @@ const Subscription = () => {
                     <Icon icon="tabler:currency-dollar" width="24" height="24" className="text-gray-600 dark:text-gray-400" />
                     <span className="font-medium text-gray-900 dark:text-white">Giá gói</span>
                   </div>
-                  <span className="font-bold text-gray-900 dark:text-white">$9.99/tháng</span>
+                  <span className="font-bold text-gray-900 dark:text-white">99.000₫/tháng</span>
                 </div>
               </div>
             </div>
