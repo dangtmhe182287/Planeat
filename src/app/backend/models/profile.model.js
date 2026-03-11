@@ -1,3 +1,4 @@
+// src/app/backend/models/profile.model.js
 const mongoose = require('mongoose');
 
 const profileSchema = new mongoose.Schema({
@@ -6,6 +7,7 @@ const profileSchema = new mongoose.Schema({
     ref: 'user',
     required: true
   },
+  name: String,
   age: Number,
   gender: String, // 'male', 'female', 'other'
   height: Number, // cm

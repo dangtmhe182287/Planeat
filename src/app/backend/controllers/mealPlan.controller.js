@@ -241,6 +241,8 @@ function findBestMealCombination(breakfasts, lunches, dinners, targets) {
     const lunch     = lunches[Math.floor(Math.random() * lunches.length)];
     const dinner    = dinners[Math.floor(Math.random() * dinners.length)];
 
+    if (breakfast.name === lunch.name || lunch.name === dinner.name || breakfast.name === dinner.name) continue;
+
     const bNutrition = calculateMealNutrition(breakfast);
     const lNutrition = calculateMealNutrition(lunch);
     const dNutrition = calculateMealNutrition(dinner);

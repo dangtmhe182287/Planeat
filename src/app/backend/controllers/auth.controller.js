@@ -1,3 +1,4 @@
+// src/app/backend/controllers/auth.controller.js
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
@@ -8,28 +9,43 @@ const {User, EmailVerification} = require('../models/user.model');
 const register = async(req, res) => {
     try{
         const {email, password} = req.body;
-        if(await User.findOne({email: email})){
-            return res.status(403).json({message: 'Email in use'});
+
+        const existing = await User.findOne({email});
+        if(existing){
+            if(existing.isVerified){
+                return res.status(403).json({message: 'Email in use'});
+            }
+            // Unverified — resend OTP
+            await EmailVerification.deleteOne({email});
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            await new EmailVerification({email, code, expiresAt: Date.now() + 600000}).save();
+            await resend.emails.send({
+                from: 'noreply@planeatemail.lol',
+                to: email,
+                subject: 'Verify your email',
+                text: `Your verification code is: ${code}`
+            });
+            return res.status(200).json({message: 'Verification code resent'});
         }
+
         const hashed = await bcryptjs.hash(password, 10);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        await new EmailVerification({
-            email,
-            code,
-            expiresAt: Date.now() + 600000
-        }).save();
 
-        await resend.emails.send({
-            from: 'noreply@planeatemail.lol',
-            to: email,
-            subject: 'Verify your email',
-            text: `Your verification code is: ${code}`
-        });
+        await new EmailVerification({email, code, expiresAt: Date.now() + 600000}).save();
 
-        const user = await new User({
-            email: email,
-            password: hashed
-        }).save();
+        try {
+            await resend.emails.send({
+                from: 'noreply@planeatemail.lol',
+                to: email,
+                subject: 'Verify your email',
+                text: `Your verification code is: ${code}`
+            });
+        } catch(e) {
+            await EmailVerification.deleteOne({email});
+            return res.status(500).json({message: 'Failed to send verification email'});
+        }
+
+        await new User({email, password: hashed}).save();
 
         res.status(201).json({message: 'User created'});
     }
@@ -113,4 +129,3 @@ const verifyToken = (req, res, next) => {
 }
 
 module.exports = {register, login, verifyEmail, verifyToken};
-

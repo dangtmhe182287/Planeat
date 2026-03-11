@@ -1,3 +1,4 @@
+// src/components/Settings/index.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
 
   const [profileData, setProfileData] = useState({
+    name: "",
     age: "",
     gender: "male",
     height: "",
@@ -37,6 +39,7 @@ const Settings = () => {
 
       if (profileRes?.data) {
         setProfileData({
+          name: profileRes.data.name || "",
           age: profileRes.data.age.toString(),
           gender: profileRes.data.gender,
           height: profileRes.data.height.toString(),
@@ -82,6 +85,7 @@ const Settings = () => {
 
     try {
       const profilePayload = {
+        name: profileData.name,
         age: parseInt(profileData.age),
         gender: profileData.gender,
         height: parseInt(profileData.height),
@@ -142,50 +146,75 @@ const Settings = () => {
                     Thông tin cá nhân
                   </h3>
 
-                  <div className="mb-[22px] grid grid-cols-2 gap-4">
+                  <div className="mb-[22px]">
+                    <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Tên</label>
                     <input
-                      type="number"
-                      name="age"
-                      placeholder="Tuổi"
-                      value={profileData.age}
+                      type="text"
+                      name="name"
+                      placeholder="Tên của bạn"
+                      value={profileData.name}
                       onChange={handleProfileChange}
-                      required
-                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500"
                     />
-                    <select
-                      name="gender"
-                      value={profileData.gender}
-                      onChange={handleProfileChange}
-                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="male" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nam</option>
-                      <option value="female" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nữ</option>
-                      <option value="other" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Khác</option>
-                    </select>
                   </div>
 
                   <div className="mb-[22px] grid grid-cols-2 gap-4">
-                    <input
-                      type="number"
-                      name="height"
-                      placeholder="Chiều cao (cm)"
-                      value={profileData.height}
-                      onChange={handleProfileChange}
-                      required
-                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <input
-                      type="number"
-                      name="weight"
-                      placeholder="Cân nặng (kg)"
-                      value={profileData.weight}
-                      onChange={handleProfileChange}
-                      required
-                      className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Tuổi</label>
+                      <input
+                        type="number"
+                        name="age"
+                        placeholder="Tuổi"
+                        value={profileData.age}
+                        onChange={handleProfileChange}
+                        required
+                        className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Giới tính</label>
+                      <select
+                        name="gender"
+                        value={profileData.gender}
+                        onChange={handleProfileChange}
+                        className="w-full rounded-md border border-gray-300 bg-white px-5 py-[13px] text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="male" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nam</option>
+                        <option value="female" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Nữ</option>
+                        <option value="other" className="bg-white text-gray-900 dark:bg-gray-700 dark:text-white">Khác</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-[22px] grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Chiều cao (cm)</label>
+                      <input
+                        type="number"
+                        name="height"
+                        placeholder="Chiều cao (cm)"
+                        value={profileData.height}
+                        onChange={handleProfileChange}
+                        required
+                        className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Cân nặng (kg)</label>
+                      <input
+                        type="number"
+                        name="weight"
+                        placeholder="Cân nặng (kg)"
+                        value={profileData.weight}
+                        onChange={handleProfileChange}
+                        required
+                        className="w-full rounded-md border border-gray-300 bg-white px-5 py-3 text-base text-gray-900 outline-none transition focus:border-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 placeholder:text-gray-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
                   </div>
 
                   <div className="mb-[22px]">
+                    <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Mức độ vận động</label>
                     <select
                       name="activityLevel"
                       value={profileData.activityLevel}
@@ -201,6 +230,7 @@ const Settings = () => {
                   </div>
 
                   <div className="mb-[22px]">
+                    <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Mục tiêu</label>
                     <select
                       name="goal"
                       value={profileData.goal}
@@ -221,6 +251,7 @@ const Settings = () => {
                   </h3>
 
                   <div className="mb-[22px]">
+                    <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-white">Chế độ ăn</label>
                     <select
                       name="dietType"
                       value={preferencesData.dietType}

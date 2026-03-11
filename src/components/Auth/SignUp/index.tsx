@@ -1,3 +1,4 @@
+// src/components/Auth/SignUp/index.tsx
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -54,7 +55,7 @@ const SignUp: React.FC<SignUpProps> = ({ onClose }) => {
       const response = await authAPI.verifyEmail({ email: signupData.email, code });
       toast.success(response.data.message || "Email đã được xác thực!");
       if (onClose) onClose();
-      router.push("/settings");
+      router.push("/onboarding");
     } catch (error: any) {
       const message = error.response?.data?.message || "Xác thực thất bại";
       toast.error(message);

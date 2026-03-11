@@ -1,3 +1,4 @@
+// src/app/backend/controllers/profile.controller.js
 const mongoose = require('mongoose');
 const Profile = require('../models/profile.model');
 const { calculateMetrics } = require('../helpers/calculateMetrics');
@@ -21,12 +22,12 @@ const createProfile = async (req, res) => {
       return res.status(403).json({ message: 'Profile already exists' });
     }
 
-    const { age, gender, height, weight, activityLevel, goal } = req.body;
+    const { name, age, gender, height, weight, activityLevel, goal } = req.body;
     const metrics = calculateMetrics({ age, gender, height, weight, activityLevel, goal });
 
     const profile = await new Profile({
       userId: req.userId,
-      age, gender, height, weight, activityLevel, goal,
+      name, age, gender, height, weight, activityLevel, goal,
       ...metrics
     }).save();
 
@@ -44,6 +45,7 @@ const updateProfile = async (req, res) => {
     }
 
     const merged = {
+      name: req.body.name ?? profile.name,
       age: req.body.age ?? profile.age,
       gender: req.body.gender ?? profile.gender,
       height: req.body.height ?? profile.height,
