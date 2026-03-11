@@ -52,8 +52,10 @@ const SignUp: React.FC<SignUpProps> = ({ onClose }) => {
     if (code.length !== 6) { toast.error("Vui lòng nhập mã 6 chữ số hợp lệ"); return; }
     setLoading(true);
     try {
-      const response = await authAPI.verifyEmail({ email: signupData.email, code });
-      toast.success(response.data.message || "Email đã được xác thực!");
+      await authAPI.verifyEmail({ email: signupData.email, code });
+      const loginResponse = await authAPI.login({ email: signupData.email, password: signupData.password });
+      setAuthToken(loginResponse.data.token);
+      toast.success("Email đã được xác thực!");
       if (onClose) onClose();
       router.push("/onboarding");
     } catch (error: any) {
