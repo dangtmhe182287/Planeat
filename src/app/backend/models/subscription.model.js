@@ -6,11 +6,17 @@ const subscriptionSchema = new mongoose.Schema({
     ref: 'user',
     required: true
   },
-  status: String, // 'trial', 'active', 'expired', 'cancelled'
-  trialStartDate: Date,
-  trialEndDate: Date,
-  paypalSubscriptionId: String,
-  lastPaymentDate: Date
+  status: {
+    type: String,
+    enum: ['active', 'expired'],
+    default: 'expired'
+  },
+  subscriptionEnd: Date,
+  pendingRequest: {
+    type: Boolean,
+    default: false
+  },
+  lastGrantedAt: Date
 });
 
 const Subscription = mongoose.model('subscription', subscriptionSchema);

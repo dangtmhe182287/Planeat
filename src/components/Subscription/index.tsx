@@ -1,22 +1,28 @@
 // src/components/Subscription/index.tsx
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import Script from "next/script";
 import Loader from "@/components/Common/Loader";
 import { subscriptionAPI } from "@/utils/api";
 import { useAuth } from "@/hooks/useAuth";
+import Image from "next/image";
+
+const FEATURES = [
+  { title: "Lập kế hoạch bữa ăn không giới hạn", desc: "Tạo bao nhiêu kế hoạch tùy thích" },
+  { title: "Dinh dưỡng cá nhân hóa", desc: "Tính toán chính xác theo mục tiêu của bạn" },
+  { title: "Thay đổi bữa ăn linh hoạt", desc: "Tùy chỉnh món ăn theo sở thích" },
+  { title: "Hỗ trợ ưu tiên", desc: "Giải đáp thắc mắc nhanh chóng" },
+];
 
 const Subscription = () => {
   const { loading: authLoading } = useAuth(true);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
-  const [cancelling, setCancelling] = useState(false);
-
-  const paypalRendered = useRef(false);
+  const [requesting, setRequesting] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   useEffect(() => {
     loadSubscription();
@@ -37,20 +43,16 @@ const Subscription = () => {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!confirm("Bạn có chắc chắn muốn hủy đăng ký?")) {
-      return;
-    }
-
-    setCancelling(true);
+  const handleRequestActivation = async () => {
+    setRequesting(true);
     try {
-      await subscriptionAPI.cancel();
-      toast.success("Đã hủy đăng ký");
+      await subscriptionAPI.requestActivation();
+      toast.success("Đã gửi yêu cầu! Chúng tôi sẽ kích hoạt trong vòng 24h.");
       loadSubscription();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Không thể hủy đăng ký");
+      toast.error("Không thể gửi yêu cầu, thử lại sau.");
     } finally {
-      setCancelling(false);
+      setRequesting(false);
     }
   };
 
@@ -62,12 +64,20 @@ const Subscription = () => {
     );
   }
 
-  const isActive = subscription?.status === "active" || subscription?.status === "trial";
+  const isActive = subscription?.status === "active";
+  const isPending = subscription?.pendingRequest === true;
+  const daysLeft = subscription?.subscriptionEnd
+    ? Math.max(0, Math.ceil((new Date(subscription.subscriptionEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const isExpiringSoon = isActive && daysLeft <= 7;
+
+  // Show payment panel by default if not active, or if user clicks renew
+  const paymentVisible = !isActive || showPayment;
 
   return (
     <section className="bg-white dark:bg-gray-900 py-20 min-h-screen">
       <div className="container mx-auto lg:max-w-screen-xl md:max-w-screen-md px-4">
-        
+
         {/* Header */}
         <div className="mb-12">
           <button
@@ -77,297 +87,192 @@ const Subscription = () => {
             <Icon icon="tabler:arrow-left" width="20" height="20" />
             Quay lại Dashboard
           </button>
-          
           <h1 className="text-4xl lg:text-5xl font-bold mb-3 text-gray-900 dark:text-white">
-            Quản lý đăng ký
+            Đăng ký của tôi
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            {subscription ? "Thông tin gói đăng ký của bạn" : "Nâng cấp để mở khóa tất cả tính năng"}
+            Quản lý gói đăng ký của bạn
           </p>
         </div>
 
-        {!subscription ? (
-          // No Subscription - Show Pricing
-          <div className="max-w-2xl mx-auto">
-            {/* Pricing Card */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 border-2 border-primary rounded-3xl overflow-hidden shadow-lg mb-8">
-              <div className="bg-primary/10 dark:bg-primary/20 px-8 py-6 border-b border-primary/20">
-                <div className="flex items-center justify-between">
+        {/* Two column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+          {/* Left — Status */}
+          <div className="space-y-6">
+
+            {/* Status card */}
+            <div className={`rounded-3xl overflow-hidden shadow-lg border-2 ${
+              isActive ? "border-green-500" : "border-red-500"
+            } bg-white dark:bg-gray-800`}>
+              <div className={`px-8 py-6 ${isActive ? "bg-green-500/10" : "bg-red-500/10"}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                    isActive ? "bg-green-100 dark:bg-green-900/40" : "bg-red-100 dark:bg-red-900/40"
+                  }`}>
+                    <Icon
+                      icon={isActive ? "tabler:check-circle" : "tabler:x-circle"}
+                      width="32" height="32"
+                      className={isActive ? "text-green-600 dark:text-green-400" : "text-red-500"}
+                    />
+                  </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                      Gói Premium
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Dùng thử miễn phí 7 ngày
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Trạng thái</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      {isActive ? "Đang hoạt động" : "Đã hết hạn"}
                     </p>
                   </div>
-                  <Icon icon="tabler:crown" width="48" height="48" className="text-primary" />
                 </div>
+              </div>
+
+              <div className="px-8 py-6 space-y-4">
+                {/* Expiry */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                    <Icon icon="tabler:calendar" width="20" height="20" />
+                    <span className="text-sm font-medium">
+                      {isActive ? "Có hiệu lực đến" : "Hết hạn ngày"}
+                    </span>
+                  </div>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {subscription?.subscriptionEnd
+                      ? new Date(subscription.subscriptionEnd).toLocaleDateString("vi-VN")
+                      : "—"}
+                  </span>
+                </div>
+
+                {/* Days left */}
+                {isActive && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                      <Icon icon="tabler:clock" width="20" height="20" />
+                      <span className="text-sm font-medium">Còn lại</span>
+                    </div>
+                    <span className={`font-bold ${isExpiringSoon ? "text-amber-500" : "text-gray-900 dark:text-white"}`}>
+                      {daysLeft} ngày
+                    </span>
+                  </div>
+                )}
+
+                {/* Price */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                    <Icon icon="tabler:credit-card" width="20" height="20" />
+                    <span className="text-sm font-medium">Gói</span>
+                  </div>
+                  <span className="font-bold text-gray-900 dark:text-white">99.000₫/tháng</span>
+                </div>
+              </div>
+
+              {/* Renew button for active users */}
+              {isActive && (
+                <div className="px-8 pb-6">
+                  <button
+                    onClick={() => setShowPayment(!showPayment)}
+                    className="w-full flex items-center justify-center gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold px-6 py-3 rounded-xl transition-all"
+                  >
+                    <Icon icon="tabler:refresh" width="18" height="18" />
+                    {showPayment ? "Ẩn thanh toán" : "Gia hạn sớm"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Expiring soon warning */}
+            {isExpiringSoon && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-2xl p-5 flex items-start gap-3">
+                <Icon icon="tabler:alert-triangle" width="22" height="22" className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  Gói của bạn sắp hết hạn. Gia hạn sớm để không bị gián đoạn.
+                </p>
+              </div>
+            )}
+
+            {/* Features list */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-4">Bao gồm trong gói</h3>
+              <div className="space-y-3">
+                {FEATURES.map((f) => (
+                  <div key={f.title} className="flex items-start gap-3">
+                    <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1 mt-0.5 flex-shrink-0">
+                      <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="14" height="14" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right — Payment (always visible if not active, toggled if active) */}
+          {paymentVisible && (
+            <div className="bg-white dark:bg-gray-800 border-2 border-primary rounded-3xl overflow-hidden shadow-lg">
+              <div className="bg-primary/10 dark:bg-primary/20 px-8 py-6 border-b border-primary/20 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Thanh toán</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {isActive ? "Gia hạn thêm 30 ngày" : "Kích hoạt gói Premium"}
+                  </p>
+                </div>
+                <Icon icon="tabler:crown" width="36" height="36" className="text-primary" />
               </div>
 
               <div className="p-8">
                 {/* Price */}
                 <div className="text-center mb-8">
-                  <div className="flex items-baseline justify-center mb-2">
+                  <div className="flex items-baseline justify-center">
                     <span className="text-5xl font-bold text-gray-900 dark:text-white">99.000₫</span>
-                    <span className="text-xl text-gray-600 dark:text-gray-400 ml-2">/tháng</span>
+                    <span className="text-lg text-gray-500 dark:text-gray-400 ml-2">/tháng</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Sau khi kết thúc dùng thử
+                </div>
+
+                {/* QR Code */}
+                <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-700 rounded-2xl p-6 mb-6">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+                    Quét mã QR để thanh toán
+                  </p>
+                  <Image
+                    src="/images/subscription/qrcode.jpg"
+                    alt="QR Code thanh toán"
+                    width={200}
+                    height={200}
+                    className="rounded-xl"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
+                    Nội dung chuyển khoản:{" "}
+                    <span className="font-semibold">PLANEAT + email của bạn</span>
                   </p>
                 </div>
 
-                {/* Features */}
-                <div className="space-y-4 mb-8">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1 mt-0.5">
-                      <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="16" height="16" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">Lập kế hoạch bữa ăn không giới hạn</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Tạo bao nhiêu kế hoạch tùy thích</p>
-                    </div>
-                  </div>
+                {/* Request Button */}
+                <button
+                  onClick={handleRequestActivation}
+                  disabled={requesting || isPending}
+                  className="w-full flex items-center justify-center gap-2 bg-primary text-white hover:bg-primary/90 font-semibold text-base px-8 py-4 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {requesting ? (
+                    <><Loader /><span>Đang gửi...</span></>
+                  ) : isPending ? (
+                    <><Icon icon="tabler:clock" width="20" height="20" /><span>Đang chờ xác nhận</span></>
+                  ) : (
+                    <><Icon icon="tabler:check" width="20" height="20" /><span>Tôi đã chuyển khoản</span></>
+                  )}
+                </button>
 
-                  <div className="flex items-start gap-3">
-                    <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1 mt-0.5">
-                      <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="16" height="16" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">Dinh dưỡng cá nhân hóa</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Tính toán chính xác theo mục tiêu của bạn</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1 mt-0.5">
-                      <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="16" height="16" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">Thay đổi bữa ăn linh hoạt</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Tùy chỉnh món ăn theo sở thích</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1 mt-0.5">
-                      <Icon icon="tabler:check" className="text-green-600 dark:text-green-400" width="16" height="16" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">Hỗ trợ ưu tiên</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Giải đáp thắc mắc nhanh chóng</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PayPal Button */}
-                <div className="rounded-2xl overflow-hidden mb-4 p-4 bg-white">
-                  <div id="paypal-button-container"></div>
-                </div>
-
-                {/* Terms */}
-                <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                  Bằng cách đăng ký, bạn đồng ý với{" "}
-                  <a href="#" className="text-primary hover:underline">Điều khoản dịch vụ</a>
-                  {" "}và{" "}
-                  <a href="#" className="text-primary hover:underline">Chính sách bảo mật</a>
-                </p>
-              </div>
-            </div>
-
-            {/* Additional Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 text-center">
-                <Icon icon="tabler:lock" width="32" height="32" className="mx-auto mb-3 text-primary" />
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Bảo mật</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Thanh toán an toàn</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 text-center">
-                <Icon icon="tabler:refresh" width="32" height="32" className="mx-auto mb-3 text-primary" />
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Linh hoạt</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Hủy bất cứ lúc nào</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 text-center">
-                <Icon icon="tabler:headset" width="32" height="32" className="mx-auto mb-3 text-primary" />
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Hỗ trợ 24/7</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Luôn sẵn sàng giúp đỡ</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          // Active Subscription
-          <div className="max-w-2xl mx-auto">
-            {/* Status Card */}
-            <div className={`rounded-3xl overflow-hidden shadow-lg mb-8 ${
-              isActive 
-                ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-800 border-2 border-green-500" 
-                : "bg-gradient-to-br from-red-50 to-rose-50 dark:from-gray-800 dark:to-gray-800 border-2 border-red-500"
-            }`}>
-              <div className="p-8 text-center">
-                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${
-                  isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
-                }`}>
-                  <Icon
-                    icon={isActive ? "tabler:check-circle" : "tabler:x-circle"}
-                    width="48"
-                    height="48"
-                    className={isActive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}
-                  />
-                </div>
-                
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  {subscription.status === "trial" ? "Đang dùng thử miễn phí" : "Đăng ký đang hoạt động"}
-                </h2>
-                
-                <p className="text-gray-600 dark:text-gray-400">
-                  Trạng thái:{" "}
-                  <span className="font-semibold">
-                    {subscription.status === "trial" 
-                      ? "Dùng thử" 
-                      : subscription.status === "active" 
-                      ? "Hoạt động" 
-                      : subscription.status}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {/* Subscription Details */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 shadow-lg mb-8">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Chi tiết đăng ký
-              </h3>
-
-              <div className="space-y-4">
-                {subscription.trialEndDate && subscription.status === "trial" && (
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Icon icon="tabler:calendar" width="24" height="24" className="text-gray-600 dark:text-gray-400" />
-                      <span className="font-medium text-gray-900 dark:text-white">Kết thúc dùng thử</span>
-                    </div>
-                    <span className="font-bold text-gray-900 dark:text-white">
-                      {new Date(subscription.trialEndDate).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
+                {isPending && (
+                  <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
+                    Yêu cầu của bạn đang được xử lý. Tài khoản sẽ được kích hoạt trong vòng 24h.
+                  </p>
                 )}
-
-                {subscription.lastPaymentDate && (
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Icon icon="tabler:credit-card" width="24" height="24" className="text-gray-600 dark:text-gray-400" />
-                      <span className="font-medium text-gray-900 dark:text-white">Thanh toán lần cuối</span>
-                    </div>
-                    <span className="font-bold text-gray-900 dark:text-white">
-                      {new Date(subscription.lastPaymentDate).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <Icon icon="tabler:currency-dollar" width="24" height="24" className="text-gray-600 dark:text-gray-400" />
-                    <span className="font-medium text-gray-900 dark:text-white">Giá gói</span>
-                  </div>
-                  <span className="font-bold text-gray-900 dark:text-white">99.000₫/tháng</span>
-                </div>
               </div>
             </div>
+          )}
 
-            {/* Active Features */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 mb-8">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Tính năng đang sử dụng
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Icon icon="tabler:check" className="text-primary" width="20" height="20" />
-                  <span className="text-gray-900 dark:text-white">Kế hoạch không giới hạn</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Icon icon="tabler:check" className="text-primary" width="20" height="20" />
-                  <span className="text-gray-900 dark:text-white">Dinh dưỡng cá nhân hóa</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Icon icon="tabler:check" className="text-primary" width="20" height="20" />
-                  <span className="text-gray-900 dark:text-white">Thay đổi bữa ăn</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Icon icon="tabler:check" className="text-primary" width="20" height="20" />
-                  <span className="text-gray-900 dark:text-white">Hỗ trợ ưu tiên</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cancel Button */}
-            {isActive && (
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
-                <div className="flex items-start gap-4">
-                  <Icon icon="tabler:info-circle" width="24" height="24" className="text-gray-400 mt-1 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                      Muốn hủy đăng ký?
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Bạn sẽ vẫn có thể sử dụng các tính năng premium cho đến hết kỳ thanh toán hiện tại.
-                    </p>
-                    <button
-                      onClick={handleCancelSubscription}
-                      disabled={cancelling}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 border-red-500 text-red-500 font-medium hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
-                    >
-                      {cancelling ? (
-                        <>
-                          <Loader />
-                          <span>Đang hủy...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon icon="tabler:x" width="20" height="20" />
-                          <span>Hủy đăng ký</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
       </div>
-
-      {/* PayPal SDK - use Next.js Script for reliable loading */}
-      <Script
-        src={`https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&vault=true&intent=subscription`}
-        data-sdk-integration-source="button-factory"
-        strategy="afterInteractive"
-        onLoad={() => {
-          const win = window as any;
-          if (!win.paypal || paypalRendered.current || subscription) return;
-          paypalRendered.current = true;
-          win.paypal.Buttons({
-            style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'subscribe' },
-            createSubscription: (_data: any, actions: any) => {
-              return actions.subscription.create({
-                plan_id: process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID,
-              });
-            },
-            onApprove: async (data: any) => {
-              try {
-                await subscriptionAPI.create(data.subscriptionID);
-                toast.success("Đăng ký thành công!");
-                loadSubscription();
-              } catch (error: any) {
-                toast.error(error.response?.data?.message || "Không thể kích hoạt đăng ký");
-              }
-            },
-            onError: (err: any) => {
-              console.error('PayPal error:', err);
-              toast.error("Có lỗi xảy ra với PayPal");
-            },
-          }).render('#paypal-button-container');
-        }}
-      />
     </section>
   );
 };

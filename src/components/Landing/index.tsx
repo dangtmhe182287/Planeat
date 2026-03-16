@@ -1,18 +1,75 @@
-// src/components/Landing/index.tsx
-// Landing page shown to unauthenticated visitors at "/"
-// ─────────────────────────────────────────────────────
-// Sections (in order):
-//   1. HEADER      — logo + sign-in / sign-up buttons
-//   2. HERO        — headline, subtext, primary CTAs
-//   3. FEATURES    — 3 feature cards (add/remove cards in the `features` array below)
-//   4. CTA FOOTER  — bottom call-to-action before the page ends
-//
-// To add a new feature card: add an object to the `features` array with icon, title, desc.
-// Icons come from Iconify (tabler set) — browse at https://icon-sets.iconify.design/tabler/
+"use client";
 
 import Link from "next/link";
 import Logo from "@/components/Layout/Header/Logo";
 import { Icon } from "@iconify/react";
+import { useEffect, useState } from "react";
+
+const CAROUSEL_IMAGES = [
+  "/images/meals/pho-bo.jpg",
+  "/images/meals/banh-mi.jpg",
+  "/images/meals/bun-bo-hue.jpg",
+  "/images/meals/com-tam.jpg",
+  "/images/meals/banh-xeo.jpg",
+  "/images/meals/goi-cuon.jpg",
+  "/images/meals/nem-ran.jpg",
+  "/images/meals/lau-thai.jpg",
+];
+
+const INTERVAL_MS = 4500;
+
+function HeroCarousel({ children }: { children: React.ReactNode }) {
+  const [current, setCurrent] = useState(0);
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFading(true);
+      setTimeout(() => {
+        setCurrent((c) => (c + 1) % CAROUSEL_IMAGES.length);
+        setFading(false);
+      }, 600);
+    }, INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="relative w-full overflow-hidden">
+      {/* Background images */}
+      {CAROUSEL_IMAGES.map((src, i) => (
+        <div
+          key={src}
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+          style={{
+            backgroundImage: `url(${src})`,
+            opacity: i === current ? (fading ? 0 : 1) : 0,
+          }}
+        />
+      ))}
+
+      {/* Dark overlay so text stays readable */}
+      <div className="absolute inset-0 bg-gray-900/60" />
+
+      {/* Content sits on top */}
+      <div className="relative z-10">
+        {children}
+      </div>
+
+      {/* Dot indicators */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        {CAROUSEL_IMAGES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrent(i)}
+            className={`h-2 rounded-full transition-all duration-300 ${
+              i === current ? "bg-white w-5" : "bg-white/40 w-2"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const features = [
   {
@@ -55,37 +112,23 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20 max-w-3xl mx-auto w-full">
-        <span className="inline-block text-xs font-semibold tracking-widest uppercase text-primary bg-primary/10 px-4 py-1.5 rounded-full mb-6">
-          Quản lý bữa ăn thông minh
-        </span>
+      {/* Hero — carousel background, no CTAs */}
+      <HeroCarousel>
+        <main className="flex flex-col items-center justify-center text-center px-6 py-28 max-w-3xl mx-auto w-full">
+          <span className="inline-block text-xs font-semibold tracking-widest uppercase text-white bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full mb-6">
+            Quản lý bữa ăn thông minh
+          </span>
 
-        <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight mb-6">
-          Ăn uống lành mạnh,{" "}
-          <span className="text-primary">không cần tốn công</span>
-        </h1>
+          <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
+            Ăn uống lành mạnh,{" "}
+            <span className="text-primary">không cần tốn công</span>
+          </h1>
 
-        <p className="text-lg text-gray-500 dark:text-gray-400 max-w-xl mb-10 leading-relaxed">
-          Planeat giúp bạn lập kế hoạch bữa ăn cá nhân hóa mỗi ngày — tự động tính dinh dưỡng, phù hợp mục tiêu sức khỏe của bạn.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <Link
-            href="/signup"
-            className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90 font-semibold text-base px-8 py-4 rounded-xl transition-all shadow-sm hover:shadow-md"
-          >
-            Bắt đầu miễn phí
-            <Icon icon="tabler:arrow-right" width="20" height="20" />
-          </Link>
-          <Link
-            href="/signin"
-            className="flex items-center gap-2 text-base font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-          >
-            Đã có tài khoản? Đăng nhập
-          </Link>
-        </div>
-      </main>
+          <p className="text-lg text-white/75 max-w-xl leading-relaxed">
+            Planeat giúp bạn lập kế hoạch bữa ăn cá nhân hóa mỗi ngày — tự động tính dinh dưỡng, phù hợp mục tiêu sức khỏe của bạn.
+          </p>
+        </main>
+      </HeroCarousel>
 
       {/* Features */}
       <section className="bg-gray-50 dark:bg-gray-800/50 py-20 px-6">

@@ -2,7 +2,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/Layout/Footer";
 import { ThemeProvider } from "next-themes";
-import ScrollToTop from "@/components/ScrollToTop";
 const font = Inter({ 
   subsets: ["latin", "vietnamese"], 
   weight: ["300", "400", "500", "600", "700", "800", "900"],
@@ -22,7 +21,6 @@ export default function RootLayout({
           defaultTheme="system"
         >
           {children}
-          <ScrollToTop />
         </ThemeProvider>
       </body>
     </html>

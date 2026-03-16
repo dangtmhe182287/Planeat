@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { profileAPI, mealPlanAPI, removeAuthToken } from "@/utils/api";
+import { profileAPI, mealPlanAPI, subscriptionAPI, removeAuthToken } from "@/utils/api";
 import { Icon } from "@iconify/react";
 import Loader from "@/components/Common/Loader";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,17 +23,33 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
+      // Subscription gate
+      try {
+        const subRes = await subscriptionAPI.getStatus();
+        if (subRes.data?.status !== "active") {
+          router.push("/subscription");
+          return;
+        }
+      } catch (error: any) {
+        // 404 means no subscription record at all
+        router.push("/subscription");
+        return;
+      }
+
       const profileRes = await profileAPI.get();
       setProfile(profileRes.data);
 
       try {
         const planRes = await mealPlanAPI.get(todayDate);
-        console.log('Meal plan data:', planRes.data);
         setMealPlan(planRes.data);
       } catch (error: any) {
-        if (error.response?.status !== 404) {
-          console.error('Error loading meal plan:', error);
+        if (error.response?.status === 404) {
+          // No meal plan today — auto-generate
+          setLoading(false);
+          handleGeneratePlan();
+          return;
         }
+        console.error('Error loading meal plan:', error);
         setMealPlan(null);
       }
     } catch (error: any) {

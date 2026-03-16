@@ -1,10 +1,10 @@
-// src/app/backend/controllers/auth.controller.js
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 const mongoose = require('mongoose');
 const {User, EmailVerification} = require('../models/user.model');
+const Subscription = require('../models/subscription.model');
 
 const register = async(req, res) => {
     try{
@@ -45,7 +45,12 @@ const register = async(req, res) => {
             return res.status(500).json({message: 'Failed to send verification email'});
         }
 
-        await new User({email, password: hashed}).save();
+        const user = await new User({email, password: hashed}).save();
+
+        // Auto-grant 7-day trial
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+        await new Subscription({ userId: user._id, status: 'active', subscriptionEnd: trialEnd }).save();
 
         res.status(201).json({message: 'User created'});
     }
@@ -65,7 +70,7 @@ const login = async(req, res) => {
         if(!user.isVerified){
             return res.status(403).json({message: 'Please verify your email first'});
         }
-        const token = jwt.sign({userId: user._id}, process.env.JWT_SECRET, {expiresIn: '7d'});
+        const token = jwt.sign({ userId: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({message: 'Login successfully', token});
 
         //logout by calling localStorage.removeItem('token');
@@ -128,4 +133,16 @@ const verifyToken = (req, res, next) => {
     }
 }
 
-module.exports = {register, login, verifyEmail, verifyToken};
+const isAdmin = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.userId);
+        if (!user || !user.isAdmin) {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+        next();
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+}
+
+module.exports = {register, login, verifyEmail, verifyToken, isAdmin};

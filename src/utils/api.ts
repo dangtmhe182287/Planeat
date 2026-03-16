@@ -87,8 +87,13 @@ export const mealsAPI = {
 // Subscription API
 export const subscriptionAPI = {
   getStatus: () => api.get('/subscription/status'),
-  create: (subscriptionID: string) => api.post('/subscription/create', { subscriptionID }),
-  cancel: () => api.post('/subscription/cancel'),
+  requestActivation: () => api.post('/subscription/request'),
+};
+
+// Admin API
+export const adminAPI = {
+  getPending: () => api.get('/subscription/pending'),
+  grantSubscription: (userId: string) => api.post('/subscription/grant', { userId }),
 };
 
 export default api;
